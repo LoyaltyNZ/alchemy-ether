@@ -1,0 +1,38 @@
+{
+  "name": "alchemy",
+    "description": "Alchemy implemented in coffee-script",
+    "version": "0.0.1",
+    "homepage": "https://github.com/LoyaltyNZ/alchemy_js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/LoyaltyNZ/alchemy_js.git"
+    },
+    "author": {
+        "name": "Graham Jenson",
+        "email": "Graham Jenson@loyaltynz.co.nz"
+    },
+    "main": "src/alchemy.coffee",
+    "engines": {
+        "node": ">= 0.10.33"
+    },
+    "dependencies": {
+        "msgpack": "0.2.4",
+        "coffee-script": "1.8.0",
+        "amqplib": "0.3.0",
+        "bluebird": "2.6.0",
+        "underscore": "1.7.0",
+        "node-uuid": "1.4.3"
+    },
+    "devDependencies": {
+        "mocha": "1.18.2",
+        "chai": "1.9.1",
+        "sinon": "1.12.2",
+        "chai-as-promised": "4.1.1",
+        "q-io": "1.11.6",
+        "throat": "1.0.0"
+    },
+    "scripts": {
+        "test": "mocha"
+    },
+    "private": true
+}
