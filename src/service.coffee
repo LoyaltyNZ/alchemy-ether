@@ -16,7 +16,7 @@ class Service
         ampq_uri: 'amqp://localhost'
         timeout: 1000
         service_fn:
-          (msg, body) -> {}
+          (payload) -> {}
       }
     )
     throw "Service Name undefined" if !@name
@@ -133,38 +133,55 @@ class Service
     deferred.resolve([msg, msgpack.unpack(msg.content)])
 
   receiveMessage: (msg) =>
-    #TODO allow the service to receive typed messages and to return 
     @_acknowledge(msg)
 
-    replyTo = msg.properties.replyTo 
-    correlationId = msg.properties.messageId
-    messageId = Util.generateUUID()
+    if msg.content
+      payload = msgpack.unpack(msg.content) 
+    else
+      payload = {body: {}, headers: {}}
 
-    if !replyTo or !messageId
+    #responce info
+    queue_to_reply_to = msg.properties.replyTo
+    message_replying_to = msg.properties.messageId
+    this_message_id = Util.generateUUID()
+
+    if not (queue_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type '#{msg.properties.type}'"
-      #continue even so
+      return false
 
     #process the message
-    bb.try( => @options.service_fn(msg, msgpack.unpack(msg.content)))
-    .then( (body) =>
+    # TODO log incoming call
+    bb.try( => @options.service_fn(payload))
+    .then( (response = {}) =>
+      #service function must return a response object with
+      # {
+      #   body: 
+      #   status_code:
+      #   headers: {}
+      # }
+      #1. JSON body
+      #2. RESPONSE Object
+      #3. 
       #reply if the information is there
-      if replyTo and messageId
-        response = {
-          status_code: 200
-          headers: {}
-          body: body
+
+      response = _.defaults(response, {
+        body: {}
+        status_code: 200
+        headers: {
+          'x-interaction-id': payload.headers['x-interaction-id']
         }
+      })
 
-
-        @sendRawMessage(
-          replyTo,
-          response, 
-          { 
-            type: 'http_response', 
-            correlationId: correlationId,
-            messageId: messageId
-          }
+      @sendRawMessage(
+        queue_to_reply_to,
+        response, 
+        { 
+          type: 'http_response', 
+          correlationId: message_replying_to,
+          messageId: this_message_id
+        }
       )
+        
     ).catch( (err) ->
       console.log err
     )

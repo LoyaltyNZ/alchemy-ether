@@ -54,9 +54,9 @@ describe 'Service', ->
         x_interaction_id = Util.generateUUID()
 
         service  = new Service('testService')
-        receivingService = new Service('receivingService', service_fn: (msg, body) ->
-          expect(body.headers['x-interaction-id']).to.equal(x_interaction_id)
-          return { "successful": true }
+        receivingService = new Service('receivingService', service_fn: (pl) ->
+          expect(pl.headers['x-interaction-id']).to.equal(x_interaction_id)
+          return { body: { "successful": true } }
         )
 
         bb.all([service.start(), receivingService.start()])
@@ -71,9 +71,9 @@ describe 'Service', ->
 
       it 'should send a generated x-interaction-id header none is passed', ->
         service  = new Service('testService')
-        receivingService = new Service('receivingService', service_fn: (msg, body) ->
-          expect(body.headers['x-interaction-id']).to.not.be.undefined
-          return { "successful": true }
+        receivingService = new Service('receivingService', service_fn: (pl) ->
+          expect(pl.headers['x-interaction-id']).to.not.be.undefined
+          return {body: { "successful": true }}
         )
 
         bb.all([service.start(), receivingService.start()])
@@ -100,7 +100,7 @@ describe 'Service', ->
       it 'should remove transaction after response', ->
         hello_service = new Service('hellowworldservice', 
           timeout: 10, 
-          service_fn: (msg) -> {hello: "world"}
+          service_fn: (payload) -> {body: {hello: "world"}}
         )
 
         service = new Service('testService')
@@ -136,7 +136,7 @@ describe 'Service', ->
       hello_service = new Service('hellowworldservice', 
         timeout: 10,
         service_queue: false,
-        service_fn: (msg) -> {hello: "world"}
+        service_fn: (payload) -> {body: {hello: "world"}}
       )
       
       service = new Service('testService')
@@ -150,6 +150,27 @@ describe 'Service', ->
         .catch(Service.TimeoutError, (err) ->
           
         )
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+  describe "service_fn", ->
+    it 'should work when returning a promise', ->
+      hello_service = new Service('hellowworldservice', 
+        timeout: 10, 
+        service_fn: (payload) -> {body: {hello: "world"}}
+      )
+
+      service = new Service('testService')
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        expect(content.body.hello).to.equal('world')
+        expect(Object.keys(service.transactions).length).to.equal(0)
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
