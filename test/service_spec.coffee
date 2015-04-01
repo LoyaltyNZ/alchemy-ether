@@ -159,7 +159,7 @@ describe 'Service', ->
     it 'should work when returning a promise', ->
       hello_service = new Service('hellowworldservice', 
         timeout: 10, 
-        service_fn: (payload) -> {body: {hello: "world"}}
+        service_fn: (payload) -> bb.delay(10).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService')
@@ -175,3 +175,25 @@ describe 'Service', ->
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
+
+    it "should be able to alter status", ->
+      hello_service = new Service('hellowworldservice', 
+        timeout: 10, 
+        service_fn: (payload) -> {body: {hello: "world"}, status_code: 201}
+      )
+
+      service = new Service('testService')
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        expect(content.body.hello).to.equal('world')
+        expect(content.status_code).to.equal(201)
+        expect(Object.keys(service.transactions).length).to.equal(0)
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
