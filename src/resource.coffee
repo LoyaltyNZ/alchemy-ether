@@ -4,27 +4,90 @@ _ = require('underscore')
 Service = require ('./service')
 Bam = require './bam'
 
+Memcached = require('memcached');
+
+
 class Resource
 
-  constructor: () ->
-    options = {}
-    options.service_fn = (payload) =>
-      #check_security
-      #check_path
-      #create context
-      #log payload logging async
-      #call resource method
-      #log response async
-      #return response
-      @create(payload)
+  constructor: (@name, @endpoint, @options = {}) ->
 
-    @service = new Service(@name, options)
+    @_memcached = bb.promisifyAll(new Memcached(@options.memcache_uri, {retries:10}))
+
+    @service_options = {
+      service_queue: true
+      ampq_uri: @options.ampq_uri
+      timeout: 1000
+    }
+
+    @service_options.service_fn = (payload) =>
+      #determine method "show, list, create, update, delete"
+      method = "create"
+      #check if the caller is allowed to call that method
+      @check_privilages(payload, method)
+      .then( (allowed) =>
+
+        return Bam.not_allowed() if !allowed
+        
+        #log request
+        @[method](payload)
+        #log response
+        #return response
+      )
+      .catch( (err) -> console.log err; Bam.error(err))
+
+    @service = new Service(@endpoint, @service_options)
 
 
   create: (context) ->
     Bam.method_not_allowed()
 
+  update: (context) ->
+    Bam.method_not_allowed()
+
+  show: (context) ->
+    Bam.method_not_allowed()
+
+  list: (context) ->
+    Bam.method_not_allowed()
+
+  delete: (context) ->
+    Bam.method_not_allowed()
+
   start: ->
-    @service.start()
+    @service.start().then( =>
+      console.log "#{@name} Resource Started with #{JSON.stringify(@service_options)}"
+    )
+
+
+  #### private methods
+  check_privilages: (payload, method) ->
+    session_id = payload.headers['x-session-id']
+
+    # {"session_id":"","caller_id":"","caller_version":0,"created_at":"","expires_at":"","identity":{"caller_id":"","participant_id":"","outlet_id":""},"scoping":{"authorised_participant_ids":[""],"authorised_programme_codes":[]},"permissions":{"resources":{"PersonAction":{"else":"allow"}},"default":{"else":"deny"}}}
+    @_memcached.getAsync("nz_co_loyalty_hoodoo_session_:#{session_id}")
+    .then( (session) =>
+      session = JSON.parse(session)
+
+      resource_permissions = session.permissions.resources[@name]
+      return false if not resource_permissions
+
+
+      method_permissions = resource_permissions[method]
+      
+      if method_permissions
+        if method_permissions == 'allow'
+          return true 
+        else
+          return false
+
+      default_resource_permissions = resource_permissions['else']
+      if default_resource_permissions
+        if default_resource_permissions == 'allow'
+          return true
+        else
+          return false
+
+      return false
+    )
 
 module.exports = Resource
