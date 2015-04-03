@@ -4,14 +4,13 @@ _ = require('underscore')
 Service = require ('./service')
 Bam = require './bam'
 
-Memcached = require('memcached');
-
+SessionClient = require('./session_client')
 
 class Resource
 
   constructor: (@name, @endpoint, @options = {}) ->
 
-    @_memcached = bb.promisifyAll(new Memcached(@options.memcache_uri, {retries:10}))
+    @session_client = new SessionClient(@options.memcache_uri)
 
     @service_options = {
       service_queue: true
@@ -54,7 +53,8 @@ class Resource
     Bam.method_not_allowed()
 
   start: ->
-    @service.start().then( =>
+    bb.all([@service.start(), @session_client.connect()])
+    .then( =>
       console.log "#{@name} Resource Started with #{JSON.stringify(@service_options)}"
     )
 
@@ -64,9 +64,8 @@ class Resource
     session_id = payload.headers['x-session-id']
 
     # {"session_id":"","caller_id":"","caller_version":0,"created_at":"","expires_at":"","identity":{"caller_id":"","participant_id":"","outlet_id":""},"scoping":{"authorised_participant_ids":[""],"authorised_programme_codes":[]},"permissions":{"resources":{"PersonAction":{"else":"allow"}},"default":{"else":"deny"}}}
-    @_memcached.getAsync("nz_co_loyalty_hoodoo_session_:#{session_id}")
+    @session_client.getSession(session_id)
     .then( (session) =>
-      session = JSON.parse(session)
 
       resource_permissions = session.permissions.resources[@name]
       return false if not resource_permissions

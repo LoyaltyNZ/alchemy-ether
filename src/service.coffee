@@ -135,6 +135,24 @@ class Service
   receiveMessage: (msg) =>
     @_acknowledge(msg)
 
+    type = msg.properties.type
+    
+    if type == 'metering_event'
+      return @receiveMeteringEvent(msg)
+    else if type == 'http_request'
+      return @receiveHTTPRequest(msg)
+    else
+      console.warn "#{@uuid}: Received message with unsupported type #{type}"
+
+
+  receiveMeteringEvent: (msg) ->
+    if msg.content
+      payload = msgpack.unpack(msg.content) 
+    else
+      payload = {}
+    @options.service_fn(payload)
+
+  receiveHTTPRequest: (msg) ->
     if msg.content
       payload = msgpack.unpack(msg.content) 
     else
@@ -146,8 +164,7 @@ class Service
     this_message_id = Util.generateUUID()
 
     if not (queue_to_reply_to and message_replying_to)
-      console.warn "#{@uuid}: Received message with no ID and/or Reply type '#{msg.properties.type}'"
-      return false
+      console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
 
     #process the message
     # TODO log incoming call
