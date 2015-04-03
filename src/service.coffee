@@ -150,7 +150,7 @@ class Service
       payload = msgpack.unpack(msg.content) 
     else
       payload = {}
-    @options.service_fn(payload)
+    bb.try( => @options.service_fn(payload))
 
   receiveHTTPRequest: (msg) ->
     if msg.content
