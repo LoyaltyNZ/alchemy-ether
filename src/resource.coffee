@@ -24,7 +24,7 @@ class Resource
       #check if the caller is allowed to call that method
       @check_privilages(payload, method)
       .then( (allowed) =>
-
+        payload.body = JSON.parse(payload.body) if typeof payload.body == 'string'
         return Bam.not_allowed() if !allowed
         
         #log request
@@ -66,7 +66,7 @@ class Resource
     # {"session_id":"","caller_id":"","caller_version":0,"created_at":"","expires_at":"","identity":{"caller_id":"","participant_id":"","outlet_id":""},"scoping":{"authorised_participant_ids":[""],"authorised_programme_codes":[]},"permissions":{"resources":{"PersonAction":{"else":"allow"}},"default":{"else":"deny"}}}
     @session_client.getSession(session_id)
     .then( (session) =>
-
+      #console.log JSON.stringify(session, null, 2)
       resource_permissions = session.permissions.resources[@name]
       return false if not resource_permissions
 
