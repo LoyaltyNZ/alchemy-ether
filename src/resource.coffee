@@ -32,7 +32,13 @@ class Resource
         #log response
         #return response
       )
-      .catch( (err) -> console.log err; Bam.error(err))
+      .catch( (err) -> 
+        if err.bam
+          return err
+        else
+          console.log "unhandled Error #{err}"; 
+          return Bam.error(err)
+      )
 
     @service = new Service(@endpoint, @service_options)
 
@@ -66,7 +72,7 @@ class Resource
     # {"session_id":"","caller_id":"","caller_version":0,"created_at":"","expires_at":"","identity":{"caller_id":"","participant_id":"","outlet_id":""},"scoping":{"authorised_participant_ids":[""],"authorised_programme_codes":[]},"permissions":{"resources":{"PersonAction":{"else":"allow"}},"default":{"else":"deny"}}}
     @session_client.getSession(session_id)
     .then( (session) =>
-      #console.log JSON.stringify(session, null, 2)
+      # console.log JSON.stringify(session, null, 2)
       resource_permissions = session.permissions.resources[@name]
       return false if not resource_permissions
 
