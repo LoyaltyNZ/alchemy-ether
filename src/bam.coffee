@@ -32,6 +32,17 @@ Bam.joi_validation_error = (joi_error) ->
     }
   }
 
+Bam.malformed_body = ->
+  {
+    bam: true
+    status_code: 422
+    body: {
+      code: "platform.malformed"
+      message: "malformed body data"
+      reference: Util.generateUUID()
+    }
+  }
+
 Bam.method_not_allowed = ->
   {
     bam: true
@@ -39,6 +50,17 @@ Bam.method_not_allowed = ->
     body: {
       code: "platform.method_not_allowed"
       message: "not allowed"
+      reference: Util.generateUUID()
+    }
+  }
+
+Bam.no_interaction_id = ->
+  {
+    bam: true
+    status_code: 422
+    body: {
+      code: "platform.no_interaction_id"
+      message: "no interaction id"
       reference: Util.generateUUID()
     }
   }
