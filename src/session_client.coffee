@@ -4,7 +4,8 @@ Memcached = require('memcached')
 class SessionClient
 
   constructor: (@memcache_host = 'localhost:11211', @retries = 2) ->
-    @_namespace = 'nz_co_loyalty_hoodoo_session_:'
+    @_session_namespace = 'nz_co_loyalty_hoodoo_session_:'
+    @_caller_namespace = 'nz_co_loyalty_hoodoo_session_:'
 
   connected: ->
     !!@_memcached
@@ -26,7 +27,17 @@ class SessionClient
     bb.try( -> )
 
   getSession: (session_id) =>
-    @_memcached.getAsync("#{@_namespace}#{session_id}")
+    @_memcached.getAsync("#{@_session_namespace}#{session_id}")
+    .then( (data) ->
+      return null unless data?
+      try 
+        return JSON.parse(data)
+      catch e
+        throw "Session is Corrupt (#{e})"
+    )
+
+  getCaller: (caller_id) =>
+    @_memcached.getAsync("#{@_caller_namespace}#{caller_id}")
     .then( (data) ->
       return null unless data?
       try 
