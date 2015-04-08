@@ -5,12 +5,15 @@ Service = require ('./service')
 Bam = require './bam'
 
 SessionClient = require('./session_client')
+Util = require("./util")
 
 class Resource
 
   constructor: (@name, @endpoint, @options = {}) ->
 
     @session_client = new SessionClient(@options.memcache_uri)
+    
+    @logging_queue = process.env['AMQ_LOGGING_ENDPOINT'] || 'platform.logging'
 
     @service_options = {
       service_queue: true
@@ -19,20 +22,26 @@ class Resource
     }
 
     @service_options.service_fn = (payload) =>
+      interaction_id = payload.headers['x-interaction-id']
+
       #determine method "show, list, create, update, delete"
       method = "create"
       #check if the caller is allowed to call that method
       @check_privilages(payload, method)
-      .then( (allowed) =>
+      .spread( (allowed, session) =>
         payload.body = JSON.parse(payload.body) if typeof payload.body == 'string'
-        return Bam.not_allowed() if !allowed
+        throw Bam.not_allowed() if !allowed
         
         #log request
-        @[method](payload)
-        #log response
-        #return response
+        @log_interaction(interaction_id, 'inbound', method, payload, session)
+
+        @[method](payload).then( (resp) =>
+          #log response
+          @log_interaction(interaction_id, 'outbound', method, resp, session)
+          resp
+        )
       )
-      .catch( (err) -> 
+      .catch( (err) ->
         if err.bam
           return err
         else
@@ -66,6 +75,32 @@ class Resource
 
 
   #### private methods
+
+  log_interaction: (interaction_id, direction, method, payload, session) ->
+    data = {
+      id: Util.generateUUID()
+      component: 'Middleware'
+      level: 'info'
+      participant_id: session.identity.participant_id #HACK to get scoping working
+      interaction_id: interaction_id
+      code: direction
+      data:
+        interaction_id: interaction_id
+        resource: @name
+        payload: payload
+        session: session
+        method: method
+    }
+
+    @log_data(data)
+
+  log_data: (data) ->
+
+    options =
+      type: 'hoodoo_service_middleware_amqp_log_message'
+
+    @service.sendRawMessage(@logging_queue, data, options)
+
   check_privilages: (payload, method) ->
     session_id = payload.headers['x-session-id']
 
@@ -75,28 +110,30 @@ class Resource
       bb.all([session, @session_client.getCaller(session.caller_id)])
     )
     .spread((session, caller) =>
-      return false if caller.version != session.caller_version
+      not_allowed = [false,session]
+      allowed = [true, session]
+      return not_allowed if caller.version != session.caller_version
 
       resource_permissions = session.permissions.resources[@name]
-      return false if not resource_permissions
+      return not_allowed if not resource_permissions
 
 
       method_permissions = resource_permissions[method]
       
       if method_permissions
         if method_permissions == 'allow'
-          return true 
+          return allowed 
         else
-          return false
+          return not_allowed
 
       default_resource_permissions = resource_permissions['else']
       if default_resource_permissions
         if default_resource_permissions == 'allow'
-          return true
+          return allowed
         else
-          return false
+          return not_allowed
 
-      return false
+      return not_allowed
     )
 
 module.exports = Resource
