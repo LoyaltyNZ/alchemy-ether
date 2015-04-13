@@ -95,7 +95,7 @@ class Resource
   start: ->
     bb.all([@service.start(), @session_client.connect()])
     .then( =>
-      console.log "#{@name} Resource Started with #{JSON.stringify(@service_options)}"
+      console.log "#{@name} Resource Started with #{JSON.stringify(@options)}"
     )
 
 
