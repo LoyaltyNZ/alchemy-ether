@@ -48,6 +48,6 @@ class SessionClient
 
   #THIS IS ONLY USED IN TEST
   setSession: (session_id, body = {}) ->
-    @_memcached.setAsync("#{@_namespace}#{session_id}", JSON.stringify(body), 10)
+    @_memcached.setAsync("#{@_session_namespace}#{session_id}", JSON.stringify(body), 10)
 
 module.exports = SessionClient

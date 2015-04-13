@@ -16,6 +16,11 @@ Bam.joi_validation_error = (joi_error) ->
           code: "generic.required_field_missing"
           message: deet.message
         }
+      when 'string.regex.base'
+        errors.push {
+          code: "generic.invalid_string"
+          message: deet.message
+        }
       else
         errors.push {
           code: "generic.unknown"
