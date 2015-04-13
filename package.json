@@ -19,7 +19,7 @@
         "msgpack": "0.2.4",
         "coffee-script": "1.8.0",
         "memcached": "2.0.0",
-        "amqplib": "0.3.0",
+        "amqplib": "0.3.2",
         "bluebird": "2.6.0",
         "underscore": "1.7.0",
         "node-uuid": "1.4.3"
