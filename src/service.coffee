@@ -25,15 +25,17 @@ class Service
     @response_queue_name = @uuid
     @service_queue_name = @name
 
+
   start: ->
     try
-    #console.info "Starting #{@uuid} service"
-      amqp.connect(@options.ampq_uri)
+      console.info "Starting #{@uuid} service"
+      @started_promise = amqp.connect(@options.ampq_uri)
       .then((connection) =>
         @connection = connection
-        @connection.on('error', (error) ->
+        @connection.on('error', (error) =>
           console.log "AMQP connection error"
           console.error error
+          @start() # retry connection
         )
         @connection.createChannel()
       )
@@ -100,9 +102,9 @@ class Service
     #create the deferred
     deferred = bb.defer()
     @transactions[messageId] = deferred
-    message_promise = deferred.promise
+    returned_promise = deferred.promise
 
-    message_promise
+    returned_promise
     .timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
       return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
@@ -111,11 +113,14 @@ class Service
     )
 
     #handle the response
-    message_promise.finally( =>
+    returned_promise.finally( =>
       delete @transactions[messageId]
     )
 
-
+    message_promise = @sendRawMessage(service, payload, options).then( ->
+      returned_promise
+    )
+    
     message_promise.service = service
     message_promise.messageId = messageId
     message_promise.transactionId = payload.headers['x-interaction-id']
@@ -123,8 +128,6 @@ class Service
     
 
     #Send the message on the queue
-    @sendRawMessage(service, payload, options)
-
     message_promise
 
   processMessageResponse: (msg) =>
@@ -210,13 +213,16 @@ class Service
     )
 
   sendRawMessage: (queue, payload, options) ->
-    try
-      @serviceChannel.publish('', queue, msgpack.pack(payload), options)
-    catch error
-      bb.try( -> 
-        console.error "@sendRawMessage ERROR"
-        throw error
-      )
+    @started_promise.then( =>
+      try
+        @serviceChannel.publish('', queue, msgpack.pack(payload), options)
+      catch error
+        bb.try( -> 
+          console.error "@sendRawMessage ERROR"
+          @start()
+          throw error
+        )
+    )
 
   _acknowledge: (message) =>
     @serviceChannel.ack(message)      
