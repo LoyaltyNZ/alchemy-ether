@@ -1,5 +1,5 @@
 bb = require "bluebird"
-amqp = bb.promisifyAll(require("amqplib/callback_api"))
+amqp = require("amqplib")
 msgpack = require('msgpack')
 Util = require("./util")
 
@@ -26,47 +26,48 @@ class Service
     @service_queue_name = @name
 
   start: ->
+    try
     #console.info "Starting #{@uuid} service"
-    connect_promise = amqp.connectAsync(@options.ampq_uri)
-    .catch( ->
-      throw "Error connecting to RabbitMQ"
-    )
-
-    connect_promise
-    .then((connection) =>
-      @connection = bb.promisifyAll(connection)
-      @connection.createChannelAsync()
-    )
-    .then( (serviceChannel) =>
-      @serviceChannel = bb.promisifyAll(serviceChannel)
-      @serviceChannel.prefetch 256
-      @serviceChannel.assertQueueAsync(@response_queue_name, {exclusive:true, autoDelete:true})
-    )
-    .then( (response_queue) =>
-      @response_queue = bb.promisifyAll(response_queue)
-      @serviceChannel.consume(@response_queue_name, @processMessageResponse)
-    )
-    .then( =>
-      if @options.service_queue
-        @serviceChannel.assertQueueAsync(@service_queue_name, {durable: false}) 
-      else
-        false
-    )
-    .then( (service_queue) =>
-      if @options.service_queue
-        @service_queue = bb.promisifyAll(service_queue)
-        @serviceChannel.consume(@service_queue_name, @receiveMessage)
-      else
-        false
-    )
-    .then( =>
-      #console.log "Started #{@uuid} service"
-      @
-    )
+      amqp.connect(@options.ampq_uri)
+      .then((connection) =>
+        @connection = connection
+        @connection.createChannel()
+      )
+      .then( (serviceChannel) =>
+        @serviceChannel = serviceChannel
+        @serviceChannel.prefetch 256
+        @serviceChannel.assertQueue(@response_queue_name, {exclusive:true, autoDelete:true})
+      )
+      .then( (response_queue) =>
+        @response_queue = response_queue
+        @serviceChannel.consume(@response_queue_name, @processMessageResponse)
+        @serviceChannel.on('error', @processError)
+      )
+      .then( =>
+        if @options.service_queue
+          @serviceChannel.assertQueue(@service_queue_name, {durable: false}) 
+        else
+          false
+      )
+      .then( (service_queue) =>
+        if @options.service_queue
+          @service_queue = bb.promisifyAll(service_queue)
+          @serviceChannel.consume(@service_queue_name, @receiveMessage)
+        else
+          false
+      )
+      .then( =>
+        #console.log "Started #{@uuid} service"
+        @
+      )
+    catch error
+      bb.try( -> throw error)
+  processError: (err) ->
+    console.log err
 
   stop: ->
     #console.log "Stopping #{@uuid} service"
-    @connection.closeAsync()
+    @connection.close()
     .then( =>
       #console.log "Stopped #{@uuid} service"
     )
@@ -95,10 +96,12 @@ class Service
       contentType: 'application/octet-stream'
 
 
+    #create the deferred
     deferred = bb.defer()
     @transactions[messageId] = deferred
+    message_promise = deferred.promise
 
-    @sendRawMessage(service, payload, options)
+    message_promise
     .timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
       return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
@@ -106,19 +109,21 @@ class Service
       deferred.reject(err)
     )
 
-    message_promise = deferred.promise
     #handle the response
     message_promise.finally( =>
       delete @transactions[messageId]
     )
-
-    message_promise
 
 
     message_promise.service = service
     message_promise.messageId = messageId
     message_promise.transactionId = payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
+    
+
+    #Send the message on the queue
+    @sendRawMessage(service, payload, options)
+    
     message_promise
 
   processMessageResponse: (msg) =>
@@ -204,7 +209,7 @@ class Service
     )
 
   sendRawMessage: (queue, payload, options) ->
-    @serviceChannel.publishAsync('', queue, msgpack.pack(payload), options)
+    @serviceChannel.publish('', queue, msgpack.pack(payload), options)
 
   _acknowledge: (message) =>
     @serviceChannel.ack(message)      
