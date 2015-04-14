@@ -31,6 +31,10 @@ class Service
       amqp.connect(@options.ampq_uri)
       .then((connection) =>
         @connection = connection
+        @connection.on('error', (error) ->
+          console.log "AMQP connection error"
+          console.error error
+        )
         @connection.createChannel()
       )
       .then( (serviceChannel) =>
