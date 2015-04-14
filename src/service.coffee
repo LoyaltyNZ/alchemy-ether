@@ -25,17 +25,16 @@ class Service
     @response_queue_name = @uuid
     @service_queue_name = @name
 
-
   start: ->
     try
       console.info "Starting #{@uuid} service"
-      @started_promise = amqp.connect(@options.ampq_uri)
+      amqp.connect(@options.ampq_uri)
       .then((connection) =>
         @connection = connection
         @connection.on('error', (error) =>
           console.log "AMQP connection error"
           console.error error
-          @start() # retry connection
+          throw error
         )
         @connection.createChannel()
       )
@@ -104,8 +103,8 @@ class Service
     @transactions[messageId] = deferred
     returned_promise = deferred.promise
 
-    returned_promise
-    .timeout(@options.timeout)
+    
+    returned_promise.timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
       return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
       console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
@@ -117,10 +116,12 @@ class Service
       delete @transactions[messageId]
     )
 
-    message_promise = @sendRawMessage(service, payload, options).then( ->
+
+    message_promise = @sendRawMessage(service, payload, options)
+    .then( =>
       returned_promise
     )
-    
+
     message_promise.service = service
     message_promise.messageId = messageId
     message_promise.transactionId = payload.headers['x-interaction-id']
@@ -128,6 +129,7 @@ class Service
     
 
     #Send the message on the queue
+    
     message_promise
 
   processMessageResponse: (msg) =>
@@ -177,7 +179,9 @@ class Service
 
     #process the message
     # TODO log incoming call
-    bb.try( => @options.service_fn(payload))
+    bb.try( => 
+      @options.service_fn(payload)
+    )
     .then( (response = {}) =>
       #service function must return a response object with
       # {
@@ -209,20 +213,19 @@ class Service
       )
         
     ).catch( (err) ->
-      console.log err
+      console.log "SEND MESSAGE ERROR"
+      console.log err.stack
+      throw err
     )
 
   sendRawMessage: (queue, payload, options) ->
-    @started_promise.then( =>
-      try
-        @serviceChannel.publish('', queue, msgpack.pack(payload), options)
-      catch error
-        bb.try( -> 
-          console.error "@sendRawMessage ERROR"
-          @start()
-          throw error
-        )
-    )
+    try
+      bb.try( => @serviceChannel.publish('', queue, msgpack.pack(payload), options))
+    catch error
+      bb.try( -> 
+        console.error "@sendRawMessage ERROR"
+        throw error
+      )
 
   _acknowledge: (message) =>
     @serviceChannel.ack(message)      
