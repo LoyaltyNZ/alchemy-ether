@@ -17,6 +17,16 @@ describe 'Service', ->
       service = new Service("testService", ampq_uri: 'bad_uri')
       expect(service.start()).to.be.rejected
 
+  describe '#sendRawMessage', ->
+    it 'should work', ->
+      service = new Service('testService')
+      service.start()
+      .then( -> 
+        service.sendRawMessage('service1', {}, {})
+      )
+      .finally( -> service.stop())
+
+
   describe '#sendMessage', ->
 
     describe 'returned transaction promise', ->

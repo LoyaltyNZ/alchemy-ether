@@ -41,7 +41,6 @@ class Service
       .then( (response_queue) =>
         @response_queue = response_queue
         @serviceChannel.consume(@response_queue_name, @processMessageResponse)
-        @serviceChannel.on('error', @processError)
       )
       .then( =>
         if @options.service_queue
@@ -62,8 +61,6 @@ class Service
       )
     catch error
       bb.try( -> throw error)
-  processError: (err) ->
-    console.log err
 
   stop: ->
     #console.log "Stopping #{@uuid} service"
@@ -123,7 +120,7 @@ class Service
 
     #Send the message on the queue
     @sendRawMessage(service, payload, options)
-    
+
     message_promise
 
   processMessageResponse: (msg) =>
@@ -209,7 +206,13 @@ class Service
     )
 
   sendRawMessage: (queue, payload, options) ->
-    @serviceChannel.publish('', queue, msgpack.pack(payload), options)
+    try
+      @serviceChannel.publish('', queue, msgpack.pack(payload), options)
+    catch error
+      bb.try( -> 
+        console.error "@sendRawMessage ERROR"
+        throw error
+      )
 
   _acknowledge: (message) =>
     @serviceChannel.ack(message)      
