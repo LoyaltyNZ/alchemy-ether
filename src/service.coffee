@@ -1,8 +1,7 @@
 bb = require "bluebird"
-amqp = require("amqplib")
 msgpack = require('msgpack')
 Util = require("./util")
-
+ServiceConnectionManger = require('./service_connection_manager')
 _ = require('underscore')
 
 class Service
@@ -23,56 +22,22 @@ class Service
     @uuid = "#{@name}.#{Util.generateUUID()}"
     @transactions = {}
     @response_queue_name = @uuid
-    @service_queue_name = @name
+
+    if @options.service_queue
+      @service_queue_name = @name
+    else
+      @service_queue_name = null
+
+    @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
 
   start: ->
     try
-      console.info "Starting #{@uuid} service"
-      amqp.connect(@options.ampq_uri)
-      .then((connection) =>
-        @connection = connection
-        @connection.on('error', (error) =>
-          console.log "AMQP connection error"
-          console.error error
-          throw error
-        )
-        @connection.createChannel()
-      )
-      .then( (serviceChannel) =>
-        @serviceChannel = serviceChannel
-        @serviceChannel.prefetch 256
-        @serviceChannel.assertQueue(@response_queue_name, {exclusive:true, autoDelete:true})
-      )
-      .then( (response_queue) =>
-        @response_queue = response_queue
-        @serviceChannel.consume(@response_queue_name, @processMessageResponse)
-      )
-      .then( =>
-        if @options.service_queue
-          @serviceChannel.assertQueue(@service_queue_name, {durable: false}) 
-        else
-          false
-      )
-      .then( (service_queue) =>
-        if @options.service_queue
-          @service_queue = bb.promisifyAll(service_queue)
-          @serviceChannel.consume(@service_queue_name, @receiveMessage)
-        else
-          false
-      )
-      .then( =>
-        #console.log "Started #{@uuid} service"
-        @
-      )
+      @connection_manager.start()
     catch error
       bb.try( -> throw error)
 
   stop: ->
-    #console.log "Stopping #{@uuid} service"
-    @connection.close()
-    .then( =>
-      #console.log "Stopped #{@uuid} service"
-    )
+    @connection_manager.stop()
 
   # Send a message internally
   sendMessage: (service, payload) ->
@@ -133,7 +98,7 @@ class Service
     message_promise
 
   processMessageResponse: (msg) =>
-    @_acknowledge(msg)
+    
     deferred = @transactions[msg.properties.correlationId]
 
     if not deferred? or msg.properties.type != 'http_response'
@@ -144,7 +109,6 @@ class Service
     deferred.resolve([msg, msgpack.unpack(msg.content)])
 
   receiveMessage: (msg) =>
-    @_acknowledge(msg)
 
     type = msg.properties.type
     
@@ -219,15 +183,7 @@ class Service
     )
 
   sendRawMessage: (queue, payload, options) ->
-    try
-      bb.try( => @serviceChannel.publish('', queue, msgpack.pack(payload), options))
-    catch error
-      bb.try( -> 
-        console.error "@sendRawMessage ERROR"
-        throw error
-      )
-
-  _acknowledge: (message) =>
-    @serviceChannel.ack(message)      
+    @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
+   
 
 module.exports = Service
