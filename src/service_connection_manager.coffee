@@ -6,53 +6,64 @@ class ServiceConnectionManager
 
   constructor: (@ampq_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
 
-  start: ->
-    # If queue names are not nil then they are created
-    console.info "Starting #{@service_queue_name} service"
-    amqp.connect(@ampq_uri)
+  get_service_channel: ->
+    return @_service_channel if @_service_channel
+
+    console.log "create service channel", @response_queue_name
+    
+    @_service_channel = amqp.connect(@ampq_uri)
     .then((connection) =>
       @connection = connection
+
       @connection.on('error', (error) =>
         console.log "AMQP connection error"
         console.error error
-        throw error
+        @_service_channel = null
       )
+      @connection.on('close', ->
+        console.log "AMQP connection closed"
+        @_service_channel = null
+      )
+
       @connection.createChannel()
     )
-    .then( (serviceChannel) =>
-      @serviceChannel = serviceChannel
-      @serviceChannel.prefetch 256
-      if @response_queue_name
-        #console.log "create response queue #{@response_queue_name}"
-        @serviceChannel.assertQueue(@response_queue_name, {exclusive: true, autoDelete: true})
-      else
-        false
+    .then( (service_channel) =>
+
+      service_channel.prefetch 256
+
+      @create_response_queue(service_channel)
+      .then( => @create_service_queue(service_channel))
+      .then( -> service_channel)
     )
-    .then( (response_queue) =>
-      if @response_queue_name
-        @response_queue = response_queue
-        @serviceChannel.consume(@response_queue_name, @respondToMessage)
-      else
-        false
+    .then( (service_channel) => 
+      service_channel
     )
-    .then( =>
-      if @service_queue_name
-        #console.log "create service queue #{@service_queue_name}"
-        @serviceChannel.assertQueue(@service_queue_name, {durable: false}) 
-      else
-        false
-    )
-    .then( (service_queue) =>
-      if @service_queue_name
-        @service_queue = bb.promisifyAll(service_queue)
-        @serviceChannel.consume(@service_queue_name, @processMessage)
-      else
-        false
-    )
-    .then( =>
-      #console.log "Started #{@uuid} service"
-      @
-    )
+
+  create_response_queue: (service_channel) ->
+    if @response_queue_name
+      #console.log "create response queue #{@response_queue_name}"
+      service_channel.assertQueue(@response_queue_name, {exclusive: true, autoDelete: true})
+      .then( (response_queue) =>
+        service_channel.consume(@response_queue_name, @respondToMessage)
+      )
+    else
+      bb.try( -> )
+
+  create_service_queue: (service_channel) ->
+    if @service_queue_name
+      service_channel.assertQueue(@service_queue_name, {durable: false})
+      .then( => 
+        service_channel.consume(@service_queue_name, @processMessage)
+      ) 
+    else
+      bb.try( -> )
+
+  start: ->
+    # If queue names are nil then they are not created
+    try
+      @get_service_channel()
+    catch error
+      bb.try( -> throw error) #turn actual error into promise error
 
   stop: -> 
     #console.log "Stopping #{@uuid} service"
@@ -70,16 +81,15 @@ class ServiceConnectionManager
     @service_handler(msg)
 
   _acknowledge: (message) =>
-    @serviceChannel.ack(message)   
+    @get_service_channel()
+    .then( (service_channel) ->
+      service_channel.ack(message)
+    )
 
   sendMessage: (queue, payload, options) ->
-    try
-      bb.try( => @serviceChannel.publish('', queue, payload, options))
-    catch error
-      bb.try( -> 
-        console.error "@sendMessage ERROR"
-        throw error
-      )
-
+    @get_service_channel()
+    .then( (service_channel) ->
+      service_channel.publish('', queue, payload, options)
+    )
 
 module.exports = ServiceConnectionManager

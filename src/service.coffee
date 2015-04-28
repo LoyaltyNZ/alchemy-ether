@@ -31,10 +31,8 @@ class Service
     @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
 
   start: ->
-    try
-      @connection_manager.start()
-    catch error
-      bb.try( -> throw error)
+    console.info "Starting #{@uuid} service"
+    @connection_manager.start()
 
   stop: ->
     @connection_manager.stop()
@@ -183,7 +181,12 @@ class Service
     )
 
   sendRawMessage: (queue, payload, options) ->
-    @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
-   
+    try
+      @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
+    catch error
+      bb.try( -> 
+        console.error "#sendRawMessage ERROR"
+        throw error
+      )
 
 module.exports = Service
