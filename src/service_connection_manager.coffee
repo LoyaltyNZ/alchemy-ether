@@ -16,7 +16,7 @@ class ServiceConnectionManager
       @connection = connection
 
       @connection.on('error', (error) =>
-        console.log "AMQP connection error"
+        console.log "AMQP Error connection error"
         console.error error
         @_service_channel = null
       )
@@ -28,8 +28,11 @@ class ServiceConnectionManager
       @connection.createChannel()
     )
     .then( (service_channel) =>
+      #http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/
 
-      service_channel.prefetch 256
+      prefetch = 20
+      console.log "prefetch #{prefetch}"
+      service_channel.prefetch prefetch
 
       @create_response_queue(service_channel)
       .then( => @create_service_queue(service_channel))
