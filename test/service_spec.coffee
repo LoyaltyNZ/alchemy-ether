@@ -13,6 +13,24 @@ describe 'Service', ->
         service.stop()
       )
 
+    it 'should start stop then start', ->
+      service = new Service("testService")
+      service.start()      
+      .then(->
+        console.log "started 1"
+        service.stop()
+      )
+      .then(->
+        console.log "stopped 1"
+        service.start()
+      )
+      .then(->
+        console.log "started 2"
+        service.stop()
+      )
+      .then(->
+        console.log "stopped 2"
+      )
     it 'should break if uri is bad', ->
       service = new Service("testService", ampq_uri: 'bad_uri')
       expect(service.start()).to.be.rejected
@@ -167,8 +185,7 @@ describe 'Service', ->
 
   describe "service_fn", ->
     it 'should work when returning a promise', ->
-      hello_service = new Service('hellowworldservice', 
-        timeout: 10, 
+      hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> bb.delay(10).then( -> {body: {hello: "world"}})
       )
 
@@ -188,7 +205,6 @@ describe 'Service', ->
 
     it "should be able to alter status", ->
       hello_service = new Service('hellowworldservice', 
-        timeout: 10, 
         service_fn: (payload) -> {body: {hello: "world"}, status_code: 201}
       )
 
@@ -207,3 +223,72 @@ describe 'Service', ->
         -> bb.all([service.stop(), hello_service.stop()])
       )
 
+  describe "unhappy path", ->
+    it 'should handle when stop start', ->
+      hello_service = new Service('hellowworldservice',
+        service_fn: (payload) -> 
+          console.log 2;
+          bb.delay(500).then( -> console.log 5; {body: {hello: "world"}})
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          #close connection
+          console.log 3
+          service.stop()
+          .then( ->
+            console.log 4
+            service.start()
+          )
+        )
+        console.log 1    
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        console.log 6
+        expect(content.body.hello).to.equal('world')
+      )
+      .catch( (err) ->
+        console.log err.stack
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+    it 'should auto resart', ->
+      hello_service = new Service('hellowworldservice',
+        service_fn: (payload) -> 
+          console.log 2;
+          bb.delay(500).then( -> console.log 5; {body: {hello: "world"}})
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          #force close connection
+          console.log 3
+          service.connection_manager.connection.close()
+          .then( ->
+            console.log 4
+          )
+        )
+        console.log 1    
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        console.log 6
+        expect(content.body.hello).to.equal('world')
+      )
+      .catch( (err) ->
+        console.log err.stack
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )

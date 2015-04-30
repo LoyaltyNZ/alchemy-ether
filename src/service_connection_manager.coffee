@@ -4,42 +4,46 @@ _ = require('underscore')
 
 class ServiceConnectionManager
 
-  constructor: (@ampq_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
+  constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
+    @state = 'stopped' # two states 'started' and 'stopped'
 
   get_service_channel: ->
     return @_service_channel if @_service_channel
-
-    console.log "create service channel", @response_queue_name
+    console.log "starting service #{@uuid}"
     
     @_service_channel = amqp.connect(@ampq_uri)
     .then((connection) =>
-      @connection = connection
 
-      @connection.on('error', (error) =>
+      connection.on('error', (error) =>
         console.log "AMQP Error connection error"
         console.error error
-        @_service_channel = null
-      )
-      @connection.on('close', ->
-        console.log "AMQP connection closed"
-        @_service_channel = null
       )
 
-      @connection.createChannel()
+      connection.on('close', =>
+        @_service_channel = null
+        @connection = null
+        if @state == 'started'
+          console.log "AMQP connection closed, restarting service #{@uuid}" 
+          #then restart
+          @get_service_channel()
+        else 
+          console.log "Service stopped #{@uuid}" 
+          #dont restart
+
+      )
+
+      @connection = connection
+      connection.createChannel()
     )
     .then( (service_channel) =>
-      #http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/
-
-      prefetch = 20
-      console.log "prefetch #{prefetch}"
-      service_channel.prefetch prefetch
+      # http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/
+      # prefetch will grab a number of un ack'ed messages from the queue
+      # since basically the first thing we do is ack a message this number can be quite low
+      service_channel.prefetch 20
 
       @create_response_queue(service_channel)
       .then( => @create_service_queue(service_channel))
-      .then( -> service_channel)
-    )
-    .then( (service_channel) => 
-      service_channel
+      .then( -> service_channel) #return the service channel
     )
 
   create_response_queue: (service_channel) ->
@@ -61,19 +65,19 @@ class ServiceConnectionManager
     else
       bb.try( -> )
 
-  start: ->
+  start: ->   
+    @state = 'started'
     # If queue names are nil then they are not created
     try
       @get_service_channel()
     catch error
       bb.try( -> throw error) #turn actual error into promise error
 
-  stop: -> 
-    #console.log "Stopping #{@uuid} service"
+  stop: ->
+    return bb.try(->) if @state == 'stopped'
+    @state = 'stopped'
     @connection.close()
-    .then( =>
-      #console.log "Stopped #{@uuid} service"
-    )
+
 
   respondToMessage: (msg) =>
     @_acknowledge(msg)

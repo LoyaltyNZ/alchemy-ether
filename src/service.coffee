@@ -28,10 +28,9 @@ class Service
     else
       @service_queue_name = null
 
-    @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
+    @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @uuid, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
 
   start: ->
-    console.info "Starting #{@uuid} service"
     @connection_manager.start()
 
   stop: ->
@@ -107,7 +106,6 @@ class Service
     deferred.resolve([msg, msgpack.unpack(msg.content)])
 
   receiveMessage: (msg) =>
-
     type = msg.properties.type
     
     if type == 'metering_event'
