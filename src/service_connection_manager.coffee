@@ -18,17 +18,11 @@ class ServiceConnectionManager
       @log "created connection"
       connection.on('error', (error) =>
         @log("AMQP Error connection error - #{error}")
+        @_connection = null
       )
 
       connection.on('close', =>
         @_connection = null #connection closed
-        if @state == 'started'
-          @log "AMQP Connection closed, reconnecting" 
-          #then restart
-          @get_connection()
-        else 
-          @log "Connection closed" 
-          #dont restart
       )
       connection
     )
@@ -38,7 +32,7 @@ class ServiceConnectionManager
     @log "creating service channel"
 
     @_service_channel = @get_connection()
-    .then( (connection) -> 
+    .then( (connection) =>
       connection.createChannel()
     )
     .then( (service_channel) =>
@@ -50,6 +44,7 @@ class ServiceConnectionManager
 
       service_channel.on('error', (error) =>
         @log "Service Channel Errored #{error}"
+        @_service_channel = null
       )
 
       service_channel.on('close', =>
@@ -72,6 +67,7 @@ class ServiceConnectionManager
   create_response_queue: (service_channel) ->
     if @response_queue_name
       fn = (msg) =>
+        #@log "recieved response message ID `#{JSON.stringify(msg.properties)}`"
         service_channel.ack(msg)
         @response_handler(msg)
 
@@ -85,7 +81,7 @@ class ServiceConnectionManager
   create_service_queue: (service_channel) ->
     if @service_queue_name
       fn = (msg) =>
-        console.log @uuid, "recieved service message ID `#{msg.properties.messageId}`"
+        #@log "recieved service message ID `#{msg.properties.messageId}`"
         service_channel.ack(msg)
         @service_handler(msg)
 
@@ -114,8 +110,11 @@ class ServiceConnectionManager
 
   sendMessage: (queue, payload, options) ->
     @get_service_channel()
-    .then( (service_channel) ->
-      service_channel.publish('', queue, payload, options)
+    .then( (service_channel) =>
+      #@log "sending message ID `#{options.messageId}` writable #{service_channel.connection.stream.writable}"
+      published = service_channel.publish('', queue, payload, options)
+      #@log "#{published}"
+      published
     )
 
 module.exports = ServiceConnectionManager
