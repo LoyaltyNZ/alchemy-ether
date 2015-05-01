@@ -31,9 +31,109 @@ describe 'Service', ->
       .then(->
         console.log "stopped 2"
       )
+
     it 'should break if uri is bad', ->
       service = new Service("testService", ampq_uri: 'bad_uri')
       expect(service.start()).to.be.rejected
+
+
+  describe 'response queue', ->
+    response_queue_exists = (service) ->
+      checker = new Service("service_queue_checker")
+      exists = false
+      checker.start()
+      .then( ->
+        checker.connection_manager.get_service_channel()
+        .then( (sc) ->
+          sc.checkQueue(service.response_queue_name)
+        )
+        .then( ->
+          #will error out if it doesnt
+          exists = true
+        )
+        .catch( ->
+          exists = false
+        )
+      )
+      .then( ->
+        exists
+      )
+      .finally( ->
+        checker.stop()
+      )
+
+
+    it 'should exist after creation', ->
+      service = new Service("testService")
+      exists = false
+      service.start()      
+      .then(->
+        response_queue_exists(service)
+        .then( (ret) ->
+          exists = ret
+        )
+      )
+      .then( ->
+        expect(exists).to.equal true
+      )
+      .finally( ->
+        service.stop()
+      )
+
+    it 'should exist after no messages (as there is a consumer)', ->
+      service = new Service("testService")
+      exists = false
+      service.start()      
+      .delay(2000)
+      .then( ->
+        response_queue_exists(service)
+        .then( (ret) ->
+          exists = ret
+        )
+      )
+      .then( ->
+        expect(exists).to.equal true
+      )
+      .finally( ->
+        service.stop()
+      )
+
+    it 'should exist after stopping and restarting (if quick enough)', ->
+      service = new Service("testService")
+      exists = false
+      service.start()      
+      .then(->
+        service.stop()
+      )
+      .delay(100)
+      .then( ->
+        response_queue_exists(service)
+        .then( (ret) ->
+          exists = ret
+        )
+      )
+      .then( ->
+        expect(exists).to.equal true
+      )
+
+    it 'should not exist after stopping for a longer period of time', ->
+      service = new Service("testService")
+      exists = false
+      service.start()      
+      .then(->
+        service.stop()
+      )
+      .delay(2000)
+      .then( ->
+        response_queue_exists(service)
+        .then( (ret) ->
+          exists = ret
+        )
+      )
+      .then( ->
+        expect(exists).to.equal false
+      )
+
 
   describe '#sendRawMessage', ->
     it 'should work', ->
@@ -288,6 +388,32 @@ describe 'Service', ->
       )
       .catch( (err) ->
         console.log err.stack
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+
+    it 'should auto restart on error and all messages should be successful', ->
+      hello_service = new Service('hellowworldservice',
+        service_fn: (payload) -> 
+          {body: {hello: "world"}}
+      )
+
+      service = new Service('testService', {timeout: 1000})
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        pms = []
+        for i in [1..100]
+          pms.push service.sendMessage('hellowworldservice', {})
+        #force close connection
+        service.connection_manager.get_service_channel()
+        .then( (sc) ->
+          cn = "auto_delete_queue#{Math.random()}"
+          sc.checkQueue(cn)
+        )
+        bb.all(pms)
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])

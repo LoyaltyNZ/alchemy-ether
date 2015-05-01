@@ -49,16 +49,13 @@ class Resource
         #log request
         log_data = _.clone(context)
         @log_interaction(log_data, 'inbound')
-      )
-      .then( =>
+        
         @[context.method](context).then( (resp) =>
           #log response
           log_data = _.clone(context)
           log_data.response = resp
           @log_interaction(log_data, 'outbound')
-          .then( ->
-            resp
-          )
+          resp
         )
       )
       .catch( (err) =>

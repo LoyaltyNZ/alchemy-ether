@@ -89,7 +89,6 @@ class Service
     message_promise.transactionId = payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
     
-
     #Send the message on the queue
     
     message_promise

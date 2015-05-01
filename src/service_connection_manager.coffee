@@ -4,32 +4,36 @@ _ = require('underscore')
 
 class ServiceConnectionManager
 
+  log : (message) ->
+    console.log "#{(new Date()).toISOString()} - #{@uuid} - #{message}"
+
   constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
     @state = 'stopped' # two states 'started' and 'stopped'
 
   get_service_channel: ->
     return @_service_channel if @_service_channel
-    console.log "starting service #{@uuid}"
+    @log "starting service"
     
+    #close connection if still open
+    @connection.close() if @connection
+    @connection = null
+
     @_service_channel = amqp.connect(@ampq_uri)
     .then((connection) =>
-
       connection.on('error', (error) =>
-        console.log "AMQP Error connection error"
-        console.error error
+        @log("AMQP Error connection error - #{error}")
       )
 
       connection.on('close', =>
         @_service_channel = null
-        @connection = null
+        @connection = null #connection closed
         if @state == 'started'
-          console.log "AMQP connection closed, restarting service #{@uuid}" 
+          @log "AMQP Connection closed, restarting service" 
           #then restart
           @get_service_channel()
         else 
-          console.log "Service stopped #{@uuid}" 
+          @log "Connection closed" 
           #dont restart
-
       )
 
       @connection = connection
@@ -41,6 +45,22 @@ class ServiceConnectionManager
       # since basically the first thing we do is ack a message this number can be quite low
       service_channel.prefetch 20
 
+      service_channel.on('error', (error) =>
+        @log "Service Channel Errored #{error}"
+      )
+
+      service_channel.on('close', =>
+        @log "Service Channel Closed"
+        @_service_channel = null
+        if @state == 'started'
+          @log "AMQP Service Channel closed, restarting service" 
+          #then restart
+          @get_service_channel()
+        else 
+          @log "Service Channel stopped" 
+          #dont restart
+      )
+
       @create_response_queue(service_channel)
       .then( => @create_service_queue(service_channel))
       .then( -> service_channel) #return the service channel
@@ -48,19 +68,27 @@ class ServiceConnectionManager
 
   create_response_queue: (service_channel) ->
     if @response_queue_name
-      #console.log "create response queue #{@response_queue_name}"
-      service_channel.assertQueue(@response_queue_name, {exclusive: true, autoDelete: true})
+      fn = (msg) =>
+        service_channel.ack(msg)
+        @response_handler(msg)
+
+      service_channel.assertQueue(@response_queue_name, {expires: 1000})
       .then( (response_queue) =>
-        service_channel.consume(@response_queue_name, @respondToMessage)
+        service_channel.consume(@response_queue_name, fn)
       )
     else
       bb.try( -> )
 
   create_service_queue: (service_channel) ->
     if @service_queue_name
+      fn = (msg) =>
+        #console.log @uuid, "recieved service message ID `#{msg.properties.messageId}`"
+        service_channel.ack(msg)
+        @service_handler(msg)
+
       service_channel.assertQueue(@service_queue_name, {durable: false})
       .then( => 
-        service_channel.consume(@service_queue_name, @processMessage)
+        service_channel.consume(@service_queue_name, fn)
       ) 
     else
       bb.try( -> )
@@ -76,21 +104,9 @@ class ServiceConnectionManager
   stop: ->
     return bb.try(->) if @state == 'stopped'
     @state = 'stopped'
-    @connection.close()
-
-
-  respondToMessage: (msg) =>
-    @_acknowledge(msg)
-    @response_handler(msg)
-
-  processMessage: (msg) =>
-    @_acknowledge(msg)
-    @service_handler(msg)
-
-  _acknowledge: (message) =>
     @get_service_channel()
-    .then( (service_channel) ->
-      service_channel.ack(message)
+    .then( (sc) =>
+      @connection.close()
     )
 
   sendMessage: (queue, payload, options) ->
