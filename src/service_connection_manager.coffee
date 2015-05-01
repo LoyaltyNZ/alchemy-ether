@@ -10,36 +10,39 @@ class ServiceConnectionManager
   constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
     @state = 'stopped' # two states 'started' and 'stopped'
 
-  get_service_channel: ->
-    return @_service_channel if @_service_channel
-    @log "starting service"
-    
-    #close connection if still open
-    @connection.close() if @connection
-    @connection = null
-
-    @_service_channel = amqp.connect(@ampq_uri)
+  get_connection: ->
+    return @_connection if @_connection
+    @log "creating connection"
+    @_connection = amqp.connect(@ampq_uri)
     .then((connection) =>
+      @log "created connection"
       connection.on('error', (error) =>
         @log("AMQP Error connection error - #{error}")
       )
 
       connection.on('close', =>
-        @_service_channel = null
-        @connection = null #connection closed
+        @_connection = null #connection closed
         if @state == 'started'
-          @log "AMQP Connection closed, restarting service" 
+          @log "AMQP Connection closed, reconnecting" 
           #then restart
-          @get_service_channel()
+          @get_connection()
         else 
           @log "Connection closed" 
           #dont restart
       )
+      connection
+    )
 
-      @connection = connection
+  get_service_channel: ->
+    return @_service_channel if @_service_channel
+    @log "creating service channel"
+
+    @_service_channel = @get_connection()
+    .then( (connection) -> 
       connection.createChannel()
     )
     .then( (service_channel) =>
+      @log "created service channel"
       # http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/
       # prefetch will grab a number of un ack'ed messages from the queue
       # since basically the first thing we do is ack a message this number can be quite low
@@ -82,7 +85,7 @@ class ServiceConnectionManager
   create_service_queue: (service_channel) ->
     if @service_queue_name
       fn = (msg) =>
-        #console.log @uuid, "recieved service message ID `#{msg.properties.messageId}`"
+        console.log @uuid, "recieved service message ID `#{msg.properties.messageId}`"
         service_channel.ack(msg)
         @service_handler(msg)
 
@@ -104,9 +107,9 @@ class ServiceConnectionManager
   stop: ->
     return bb.try(->) if @state == 'stopped'
     @state = 'stopped'
-    @get_service_channel()
-    .then( (sc) =>
-      @connection.close()
+    @get_connection()
+    .then( (connection) =>
+      connection.close()
     )
 
   sendMessage: (queue, payload, options) ->
