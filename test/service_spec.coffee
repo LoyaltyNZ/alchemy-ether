@@ -137,12 +137,13 @@ describe 'Service', ->
 
   describe '#sendRawMessage', ->
     it 'should work', ->
-      service = new Service('testService')
-      service.start()
+      service = new Service('push')
+      s1 = new Service('pull')
+      bb.all([service.start(), s1.start()])
       .then( -> 
-        service.sendRawMessage('service1', {}, {})
+        service.sendRawMessage('pull', {}, {})
       )
-      .finally( -> service.stop())
+      .finally( -> bb.all([service.stop(), s1.stop()]))
 
 
   describe '#sendMessage', ->
@@ -394,7 +395,7 @@ describe 'Service', ->
       )
 
 
-    it 'should auto restart on error and all messages should be successful', ->
+    it 'should auto restart on service channel error and all messages should be successful', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> 
           {body: {hello: "world"}}
@@ -414,6 +415,64 @@ describe 'Service', ->
           sc.checkQueue(cn)
         )
         bb.all(pms)
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+
+    it 'should recover from connection error while recieveing messages', ->
+      hello_service = new Service('hwservice',
+        service_fn: (payload) ->
+          bb.delay(10).then( ->
+            {body: {hello: "world"}}
+          )
+      )
+
+      service = new Service('tservice', {timeout: 2000})
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        pms = []
+        for i in [1..1000]
+          pms.push service.sendMessage('hwservice', {})
+        #force close connection
+        service.connection_manager.get_connection()
+        .delay(10)
+        .then( (con) ->
+          console.log "KILL KILL KILL"
+          con.connection.stream.end() #simulate unexpected disconnection
+        )
+
+        bb.all(pms)
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+    it 'should recover from connection error and all messages should be successful', ->
+      hello_service = new Service('hwservice',
+        service_fn: (payload) ->
+          bb.delay(10).then( ->
+            {body: {hello: "world"}}
+          )
+      )
+
+      service = new Service('tservice', {timeout: 2000})
+      
+      bb.all([hello_service.start(), service.start()])
+      .then ( ->
+        service.sendMessage('hwservice', {})
+      )
+      .then( ->
+        service.connection_manager.get_connection()
+        .then( (con) ->
+          console.log "KILL KILL KILL"
+          con.connection.stream.end() #simulate unexpected disconnection
+        )
+      )
+      .then( ->
+        service.sendMessage('hwservice', {})
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
