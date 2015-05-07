@@ -17,7 +17,7 @@
     },
     "dependencies": {
         "msgpack": "0.2.4",
-        "coffee-script": "1.8.0",
+        "coffee-script": "1.9.2",
         "memcached": "2.0.0",
         "amqplib": "0.3.2",
         "bluebird": "2.6.0",
