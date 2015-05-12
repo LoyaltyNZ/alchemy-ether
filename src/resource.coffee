@@ -11,6 +11,9 @@ class Resource
 
   constructor: (@name, @endpoint, @options = {}) ->
 
+    if !@endpoint
+      @endpoint = @name
+
     @session_client = new SessionClient(@options.memcache_uri)
     
     @logging_queue = process.env['AMQ_LOGGING_ENDPOINT'] || 'platform.logging'
@@ -50,7 +53,7 @@ class Resource
         log_data = _.clone(context)
         @log_interaction(log_data, 'inbound')
         
-        @[context.method](context).then( (resp) =>
+        bb.try( => @[context.method](context)).then( (resp) =>
           #log response
           log_data = _.clone(context)
           log_data.response = resp
@@ -98,6 +101,11 @@ class Resource
       console.log "#{@name} Resource Started with #{JSON.stringify(@options)}"
     )
 
+  stop: ->
+    bb.all([@service.stop(), @session_client.disconnect()])
+    .then( =>
+      console.log "#{@name} Resource Stopped"
+    )
 
   #### private methods
   get_body: (payload) ->
