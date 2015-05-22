@@ -67,7 +67,6 @@ class Resource
         else
           bam_err = Bam.error(err)
         console.log "Error #{JSON.stringify(bam_err)}"; 
-        
 
         log_data = _.clone(context)
         log_data.errors = bam_err
@@ -168,6 +167,7 @@ class Resource
     @service.sendRawMessage(@logging_queue, data, options)
 
   check_privilages: (context) ->
+    return bb.try(-> false) if !context || !context.session || !context.session.caller_id
     @session_client.getCaller(context.session.caller_id)
     .then( (caller) =>
       not_allowed = false
