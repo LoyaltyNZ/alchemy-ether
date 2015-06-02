@@ -12,6 +12,7 @@ class Service
       options,
       {
         service_queue: true
+        responce_queue: true
         ampq_uri: 'amqp://localhost'
         timeout: 1000
         service_fn:
@@ -21,8 +22,12 @@ class Service
     throw "Service Name undefined" if !@name
     @uuid = "#{@name}.#{Util.generateUUID()}"
     @transactions = {}
-    @response_queue_name = @uuid
 
+    if @options.responce_queue
+      @response_queue_name = @uuid
+    else
+      @response_queue_name = null
+      
     if @options.service_queue
       @service_queue_name = @name
     else

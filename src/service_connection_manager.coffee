@@ -66,6 +66,7 @@ class ServiceConnectionManager
 
   create_response_queue: (service_channel) ->
     if @response_queue_name
+      @log "Creating response queue"
       fn = (msg) =>
         #@log "recieved response message ID `#{JSON.stringify(msg.properties)}`"
         service_channel.ack(msg)
@@ -80,6 +81,7 @@ class ServiceConnectionManager
 
   create_service_queue: (service_channel) ->
     if @service_queue_name
+      @log "Creating service queue"
       fn = (msg) =>
         #@log "recieved service message ID `#{msg.properties.messageId}`"
         service_channel.ack(msg)

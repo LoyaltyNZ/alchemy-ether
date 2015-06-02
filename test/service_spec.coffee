@@ -260,6 +260,25 @@ describe 'Service', ->
         )
         .finally( -> service.stop())
 
+  describe "option responce_queue", ->
+    it 'should not listen to a service queue if false', ->
+      hello_service = new Service('hellowworldservice', 
+        timeout: 10,
+        responce_queue: false,
+        service_fn: (payload) -> {body: {hello: "world"}}
+      )
+      
+      service = new Service('testService')
+      
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+
   describe "option service_queue", ->
     it 'should not listen to a service queue if false', ->
       hello_service = new Service('hellowworldservice', 
