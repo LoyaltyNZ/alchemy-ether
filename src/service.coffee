@@ -27,7 +27,7 @@ class Service
       @response_queue_name = @uuid
     else
       @response_queue_name = null
-      
+
     if @options.service_queue
       @service_queue_name = @name
     else
@@ -113,6 +113,8 @@ class Service
     type = msg.properties.type
     
     if type == 'metering_event'
+      return @receiveUtilityEvent(msg)
+    else if type == 'hoodoo_service_middleware_amqp_log_message'
       return @receiveUtilityEvent(msg)
     else if type == 'logging_event'
       return @receiveUtilityEvent(msg)
