@@ -162,7 +162,7 @@ class Resource
   log_data: (data) ->
 
     options =
-      type: 'hoodoo_service_middleware_amqp_log_message'
+      type: 'logging_event'
 
     @service.sendRawMessage(@logging_queue, data, options)
 

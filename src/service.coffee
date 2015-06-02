@@ -108,14 +108,16 @@ class Service
     type = msg.properties.type
     
     if type == 'metering_event'
-      return @receiveMeteringEvent(msg)
+      return @receiveUtilityEvent(msg)
+    else if type == 'logging_event'
+      return @receiveUtilityEvent(msg)
     else if type == 'http_request'
       return @receiveHTTPRequest(msg)
     else
       console.warn "#{@uuid}: Received message with unsupported type #{type}"
 
 
-  receiveMeteringEvent: (msg) ->
+  receiveUtilityEvent: (msg) ->
     if msg.content
       payload = msgpack.unpack(msg.content) 
     else
