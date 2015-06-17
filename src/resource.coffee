@@ -41,6 +41,11 @@ class Resource
       )
       .then( (body) =>
         context.body = body
+        @get_query(payload)
+      )
+      .then( (query) =>
+        context.path = query.path
+        context.query = query.query
         @get_session(payload)
       )
       .then((session) =>
@@ -118,7 +123,14 @@ class Resource
       else
         return {}
     )
-    
+
+  get_query: (payload) ->
+    {
+      path: payload.path
+      query: payload.query
+    }
+
+
   get_method: (payload) ->
     bb.try( ->
       switch payload.verb
