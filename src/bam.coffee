@@ -103,6 +103,17 @@ Bam.not_found = (resource) ->
     }
   } 
 
+Bam.exists = (resource) ->
+  {
+    bam: true
+    status_code: 422
+    body: {
+      code: "platform.exists"
+      message: "#{resource} already exists"
+      reference: Util.generateUUID()
+    }
+  } 
+
 Bam.error = (err) ->
   {
     bam: true
