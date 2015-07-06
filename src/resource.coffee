@@ -60,13 +60,25 @@ class Resource
         
         bb.try( => @[context.method](context)).then( (resp) =>
           #log response
-          log_data = _.clone(context)
           log_data.response = resp
           @log_interaction(log_data, 'outbound')
           resp
         )
+        .catch( (err) =>
+          #user level error
+          if err.bam
+            bam_err = err
+          else
+            bam_err = Bam.error(err)
+          console.log "Error #{JSON.stringify(bam_err)}"; 
+          log_data.errors = bam_err
+          log_data.id = bam_err.body.reference
+          @log_interaction(log_data, 'outbound', 'error')
+          return bam_err
+        )
       )
       .catch( (err) =>
+        #platform Error
         if err.bam
           bam_err = err
         else
@@ -156,7 +168,6 @@ class Resource
 
 
   log_interaction: (log_data, code, level = 'info') ->
-
 
     data = {
       id: log_data.id || Util.generateUUID()
