@@ -58,19 +58,20 @@ class Resource
         log_data = _.clone(context)
         @log_interaction(log_data, 'inbound')
         
-        bb.try( => @[context.method](context)).then( (resp) =>
+        bb.try( => @[context.method](context))
+        .then( (resp) =>
           #log response
           log_data.response = resp
           @log_interaction(log_data, 'outbound')
           resp
         )
         .catch( (err) =>
-          #user level error
+          #service error
           if err.bam
             bam_err = err
           else
             bam_err = Bam.error(err)
-          console.log "Error #{JSON.stringify(bam_err)}"; 
+          console.log "Service Error #{JSON.stringify(bam_err)}"; 
           log_data.errors = bam_err
           log_data.id = bam_err.body.reference
           @log_interaction(log_data, 'outbound', 'error')
@@ -83,7 +84,7 @@ class Resource
           bam_err = err
         else
           bam_err = Bam.error(err)
-        console.log "Error #{JSON.stringify(bam_err)}"; 
+        console.log "Platform Error #{JSON.stringify(bam_err)}"; 
 
         log_data = _.clone(context)
         log_data.errors = bam_err
@@ -97,19 +98,19 @@ class Resource
 
 
   create: (context) ->
-    Bam.method_not_allowed()
+    throw Bam.method_not_allowed()
 
   update: (context) ->
-    Bam.method_not_allowed()
+    throw Bam.method_not_allowed()
 
   show: (context) ->
-    Bam.method_not_allowed()
+    throw Bam.method_not_allowed()
 
   list: (context) ->
-    Bam.method_not_allowed()
+    throw Bam.method_not_allowed()
 
   delete: (context) ->
-    Bam.method_not_allowed()
+    throw Bam.method_not_allowed()
 
   start: ->
     bb.all([@service.start(), @session_client.connect()])
