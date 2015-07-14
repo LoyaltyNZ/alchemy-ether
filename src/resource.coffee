@@ -57,12 +57,15 @@ class Resource
         #log request
         log_data = _.clone(context)
         @log_interaction(log_data, 'inbound')
-        
+        st = new Date().getTime()
         bb.try( => @[context.method](context))
         .then( (resp) =>
           #log response
           log_data.response = resp
+          et = new Date().getTime()
+          log_data.response_time = et - st
           @log_interaction(log_data, 'outbound')
+
           resp
         )
         .catch( (err) =>
@@ -180,7 +183,6 @@ class Resource
       interaction_id: log_data?.interaction_id
       data: log_data
     }
-
     @log_data(data)
 
   log_data: (data) ->
