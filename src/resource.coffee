@@ -1,5 +1,5 @@
 bb = require "bluebird"
-_ = require('underscore')
+_ = require('lodash')
 
 Service = require ('./service')
 Bam = require './bam'
@@ -55,10 +55,10 @@ class Resource
       .then( (allowed) =>
         throw Bam.not_allowed() if !allowed
         #log request
-        log_data = _.clone(context)
+        log_data = _.cloneDeep(context)
         @log_interaction(log_data, 'inbound')
         st = new Date().getTime()
-        bb.try( => @[context.method](context))
+        bb.try( => @[context.method](_.cloneDeep(context)))
         .then( (resp) =>
           #log response
           log_data.response = resp

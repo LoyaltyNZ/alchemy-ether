@@ -2,7 +2,7 @@ bb = require "bluebird"
 msgpack = require('msgpack')
 Util = require("./util")
 ServiceConnectionManger = require('./service_connection_manager')
-_ = require('underscore')
+_ = require('lodash')
 
 class Service
   @TimeoutError = bb.TimeoutError

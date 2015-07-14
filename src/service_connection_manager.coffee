@@ -1,6 +1,6 @@
 bb = require "bluebird"
 amqp = require("amqplib")
-_ = require('underscore')
+_ = require('lodash')
 
 class ServiceConnectionManager
 

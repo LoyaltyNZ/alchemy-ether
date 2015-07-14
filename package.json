@@ -21,7 +21,7 @@
         "memcached": "2.0.0",
         "amqplib": "0.3.2",
         "bluebird": "2.9.27",
-        "underscore": "1.7.0",
+        "lodash": "3.9.3",
         "node-uuid": "1.4.3"
     },
     "devDependencies": {
