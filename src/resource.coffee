@@ -18,7 +18,7 @@ class Resource
     @session_client = new SessionClient(@options.memcache_uri)
     
     @options = _.defaults(
-      options,
+      @options,
       {
         logging_endpoint: 'platform.logging'
       }
