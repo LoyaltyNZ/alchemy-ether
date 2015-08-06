@@ -1,4 +1,4 @@
-bb = require "bluebird"
+ebb = require "bluebird"
 _ = require('lodash')
 
 Service = require ('./service')
@@ -6,6 +6,7 @@ Bam = require './bam'
 
 SessionClient = require('./session_client')
 Util = require("./util")
+Logger = require("./logger")
 
 class Resource
 
@@ -16,7 +17,14 @@ class Resource
 
     @session_client = new SessionClient(@options.memcache_uri)
     
-    @logging_queue = process.env['AMQ_LOGGING_ENDPOINT'] || 'platform.logging'
+    @options = _.defaults(
+      options,
+      {
+        logging_endpoint: 'platform.logging'
+      }
+    )
+
+    
 
     @service_options = {
       service_queue: true
@@ -56,15 +64,16 @@ class Resource
         throw Bam.not_allowed() if !allowed
         #log request
         log_data = _.cloneDeep(context)
-        @log_interaction(log_data, 'inbound')
+        @logger.log_interaction(log_data, 'inbound')
         st = new Date().getTime()
         bb.try( => @[context.method](_.cloneDeep(context)))
         .then( (resp) =>
           #log response
           log_data.response = resp
+
           et = new Date().getTime()
           log_data.response_time = et - st
-          @log_interaction(log_data, 'outbound')
+          @logger.log_interaction(log_data, 'outbound')
 
           resp
         )
@@ -77,7 +86,7 @@ class Resource
           console.log "Service Error #{JSON.stringify(bam_err)}"; 
           log_data.errors = bam_err
           log_data.id = bam_err.body.reference
-          @log_interaction(log_data, 'outbound', 'error')
+          @logger.log_interaction(log_data, 'outbound', 'error')
           return bam_err
         )
       )
@@ -93,12 +102,12 @@ class Resource
         log_data.errors = bam_err
         log_data.payload = payload
         log_data.id = bam_err.body.reference
-        @log_interaction(log_data, 'outbound', 'error')
+        @logger.log_interaction(log_data, 'outbound', 'error')
         return bam_err
       )
 
     @service = new Service(@endpoint, @service_options)
-
+    @logger = new Logger(@service, @options.logging_endpoint )
 
   create: (context) ->
     throw Bam.method_not_allowed()
@@ -171,26 +180,8 @@ class Resource
     )
 
 
-  log_interaction: (log_data, code, level = 'info') ->
 
-    data = {
-      id: log_data.id || Util.generateUUID()
-      created_at: (new Date()).toISOString()
-      component: log_data.resource
-      code: code
-      level: level
-      participant_id: log_data?.session?.identity.participant_id #HACK to get scoping working
-      interaction_id: log_data?.interaction_id
-      data: log_data
-    }
-    @log_data(data)
 
-  log_data: (data) ->
-
-    options =
-      type: 'logging_event'
-
-    @service.sendRawMessage(@logging_queue, data, options)
 
   check_privilages: (context) ->
     return bb.try(-> false) if !context || !context.session || !context.session.caller_id

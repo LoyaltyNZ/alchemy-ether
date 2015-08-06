@@ -3,6 +3,7 @@ Resource = require('./resource')
 Bam = require('./bam')
 SessionClient = require('./session_client')
 Util = require("./util")
+Logger = require './logger'
 
 module.exports = {
   Service: Service, 
@@ -10,4 +11,5 @@ module.exports = {
   Bam: Bam
   SessionClient: SessionClient
   Util: Util
+  Logger: Logger
 }

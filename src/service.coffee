@@ -161,18 +161,16 @@ class Service
       #2. RESPONSE Object
       #3. 
       #reply if the information is there
+      
+      resp = {}
+      resp.body = response.body || {}
+      resp.status_code =  response.status_code || 200
+      resp.headers = response.headers || { 'x-interaction-id': payload.headers['x-interaction-id']}
 
-      response = _.defaults(response, {
-        body: {}
-        status_code: 200
-        headers: {
-          'x-interaction-id': payload.headers['x-interaction-id']
-        }
-      })
 
       @sendRawMessage(
         queue_to_reply_to,
-        response, 
+        resp, 
         { 
           type: 'http_response', 
           correlationId: message_replying_to,
