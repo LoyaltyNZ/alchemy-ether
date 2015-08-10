@@ -347,8 +347,7 @@ describe 'Service', ->
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> 
-          console.log 2;
-          bb.delay(500).then( -> console.log 5; {body: {hello: "world"}})
+          bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService', {timeout: 5000})
@@ -358,18 +357,14 @@ describe 'Service', ->
         bb.delay(250) #enough time to put message on queue
         .then( ->
           #close connection
-          console.log 3
           service.stop()
           .then( ->
-            console.log 4
             service.start()
           )
-        )
-        console.log 1    
+        )  
         service.sendMessage('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        console.log 6
         expect(content.body.hello).to.equal('world')
       )
       .catch( (err) ->
@@ -382,8 +377,7 @@ describe 'Service', ->
     it 'should auto resart', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> 
-          console.log 2;
-          bb.delay(500).then( -> console.log 5; {body: {hello: "world"}})
+          bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService', {timeout: 5000})
@@ -393,17 +387,11 @@ describe 'Service', ->
         bb.delay(250) #enough time to put message on queue
         .then( ->
           #force close connection
-          console.log 3
           service.connection_manager.connection.close()
-          .then( ->
-            console.log 4
-          )
-        )
-        console.log 1    
+        )  
         service.sendMessage('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        console.log 6
         expect(content.body.hello).to.equal('world')
       )
       .catch( (err) ->

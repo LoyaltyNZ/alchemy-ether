@@ -17,7 +17,7 @@ class ServiceConnectionManager
     .then((connection) =>
       @log "created connection"
       connection.on('error', (error) =>
-        @log("AMQP Error connection error - #{error}")
+        @log("AMQP Error connection error - #{error} - #{error.stack || ''}")
         @_connection = null
       )
 
