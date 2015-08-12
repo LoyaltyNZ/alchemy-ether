@@ -22,7 +22,7 @@ class Logger
     options =
       type: 'logging_event'
   
-    @service.sendRawMessage(@logging_queue, data, options)
+    @service.sendRawMessageToService(@logging_queue, data, options)
 
 
 module.exports = Logger

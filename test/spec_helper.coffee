@@ -26,6 +26,7 @@ global.assert = chai.assert;
 alchemy = require("../src/alchemy")
 global.Service = alchemy.Service
 global.Resource = alchemy.Resource
+global.ResourceService = alchemy.ResourceService
 global.SessionClient = alchemy.SessionClient
 
 global.Util = require("../src/util")

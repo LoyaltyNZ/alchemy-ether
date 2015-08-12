@@ -37,6 +37,10 @@ describe 'Service', ->
       expect(service.start()).to.be.rejected
 
 
+  describe 'exchange posting', ->
+    it 'sending a message to an exchange should work', ->
+      service = new Service("testService")
+
   describe 'response queue', ->
     response_queue_exists = (service) ->
       checker = new Service("service_queue_checker")

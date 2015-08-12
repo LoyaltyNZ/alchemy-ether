@@ -10,22 +10,33 @@ describe "Resource", ->
 
   describe "show", ->
     it 'should work', ->
-      service = new Service('testService')
-      resource = new Resource("testResource")
-      resource.check_privilages = -> true
+      resource = new Resource("resource")
       resource.show = (payload) ->
-        return {body: {"hello": "world"}}
+        return { body: {"hello": "world"} }
+      resource.show.public = true
 
-      bb.all([service.start(), resource.start()])
+      resource_service = new ResourceService('resource_service', [resource])
+
+      service = new Service('testService')
+      console.log "HERE"
+      bb.all([service.start(), resource_service.start()])
       .then( ->
-        service.sendMessage('testResource', {verb: "GET"})
+        console.log "AHAH"
+        service.sendMessageToService('resource_service', {verb: "GET"})
+      )
+      .spread((resp, body) ->
+        expect(body.body.hello).to.equal "world"
+        expect(body.status_code).to.equal 200
+      )
+      .then( ->
+        service.sendMessageToResource('resource', {verb: "GET"})
       )
       .spread((resp, body) ->
         expect(body.body.hello).to.equal "world"
         expect(body.status_code).to.equal 200
       )
       .finally(->
-        bb.all([service.stop(), resource.stop()])
+        bb.all([service.stop(), resource_service.stop()])
       )
 
     describe "logging", ->

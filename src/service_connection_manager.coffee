@@ -20,7 +20,6 @@ class ServiceConnectionManager
         @log("AMQP Error connection error - #{error} - #{error.stack || ''}")
         @_connection = null
       )
-
       connection.on('close', =>
         @_connection = null #connection closed
       )
@@ -43,8 +42,13 @@ class ServiceConnectionManager
       service_channel.prefetch 20
 
       service_channel.on('error', (error) =>
-        @log "Service Channel Errored #{error}"
+        @log "Service Channel Errored #{error}, #{error.stack}"
         @_service_channel = null
+      )
+
+      service_channel.on('return', (message) =>
+        @log "Message Returned to Channel #{message}"
+        console.log "ASFSAASGSAG"
       )
 
       service_channel.on('close', =>
@@ -88,6 +92,9 @@ class ServiceConnectionManager
         @service_handler(msg)
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
+      .then( =>
+        service_channel.assertExchange("resources.exchange", 'direct')
+      )
       .then( => 
         service_channel.consume(@service_queue_name, fn)
       ) 
@@ -110,13 +117,25 @@ class ServiceConnectionManager
       connection.close()
     )
 
-  sendMessage: (queue, payload, options) ->
+
+  addResourceToService: (resource_name) -> 
     @get_service_channel()
     .then( (service_channel) =>
-      #@log "sending message ID `#{options.messageId}` writable #{service_channel.connection.stream.writable}"
-      published = service_channel.publish('', queue, payload, options)
-      #@log "#{published}"
-      published
+      service_channel.bindQueue(@service_queue_name, "resources.exchange", resource_name)
+    )
+
+  sendMessageToService: (service, payload, options) ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      options.mandatory = true
+      service_channel.publish('', service, payload, options)
+    )
+
+  sendMessageToResource: (resource, payload, options) ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      options.mandatory = true
+      service_channel.publish("resources.exchange", resource, payload, options)
     )
 
 module.exports = ServiceConnectionManager

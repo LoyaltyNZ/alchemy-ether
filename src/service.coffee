@@ -42,7 +42,13 @@ class Service
     @connection_manager.stop()
 
   # Send a message internally
-  sendMessage: (service, payload) ->
+  sendMessageToService: (service, payload) ->
+    @sendMessageToServiceOrResource(service, null, payload)
+
+  sendMessageToResource: (resource, payload) ->
+    @sendMessageToServiceOrResource(null, resource, payload)
+
+  sendMessageToServiceOrResource: (service, resource, payload) ->
 
     # Add in headers if there are none
     if !payload.headers
@@ -64,7 +70,6 @@ class Service
       contentEncoding: '8bit'
       contentType: 'application/octet-stream'
 
-
     #create the deferred
     deferred = bb.defer()
     @transactions[messageId] = deferred
@@ -83,23 +88,28 @@ class Service
       delete @transactions[messageId]
     )
 
-
-    message_promise = @sendRawMessage(service, payload, options)
-    .then( =>
-      returned_promise
-    )
-
-    message_promise.service = service
+    if service
+      message_promise = @sendRawMessageToService(service, payload, options)
+      .then( =>
+        returned_promise
+      )
+      message_promise.service = service
+    else 
+      message_promise = @sendRawMessageToResource(resource, payload, options)
+      .then( =>
+        returned_promise
+      )
+      message_promise.resource = resource
+    
+    
     message_promise.messageId = messageId
     message_promise.transactionId = payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
     
     #Send the message on the queue
-    
     message_promise
 
   processMessageResponse: (msg) =>
-    
     deferred = @transactions[msg.properties.correlationId]
 
     if not deferred? or msg.properties.type != 'http_response'
@@ -111,7 +121,7 @@ class Service
 
   receiveMessage: (msg) =>
     type = msg.properties.type
-    
+
     if type == 'metering_event'
       return @receiveUtilityEvent(msg)
     else if type == 'hoodoo_service_middleware_amqp_log_message'
@@ -138,11 +148,11 @@ class Service
       payload = {body: {}, headers: {}}
 
     #responce info
-    queue_to_reply_to = msg.properties.replyTo
+    service_to_reply_to = msg.properties.replyTo
     message_replying_to = msg.properties.messageId
     this_message_id = Util.generateUUID()
 
-    if not (queue_to_reply_to and message_replying_to)
+    if not (service_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
 
     #process the message
@@ -168,9 +178,9 @@ class Service
       resp.headers = response.headers || { 'x-interaction-id': payload.headers['x-interaction-id']}
 
 
-      @sendRawMessage(
-        queue_to_reply_to,
-        resp, 
+      @replyToServiceMessage(
+        service_to_reply_to,
+        resp,
         { 
           type: 'http_response', 
           correlationId: message_replying_to,
@@ -184,13 +194,20 @@ class Service
       throw err
     )
 
-  sendRawMessage: (queue, payload, options) ->
-    try
-      @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
-    catch error
-      bb.try( -> 
-        console.error "#sendRawMessage ERROR"
-        throw error
-      )
+
+
+  addResourceToService: (resource) ->
+    @connection_manager.addResourceToService(resource)
+
+  replyToServiceMessage: (service, payload, options) ->
+    @sendRawMessageToService(service, payload, options)
+
+  sendRawMessageToService: (service, payload, options) ->
+    @connection_manager.sendMessageToService(service, msgpack.pack(payload), options)
+
+  sendRawMessageToResource: (resource, payload, options) ->
+    console.log "Sending message to resource"
+    @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
+
 
 module.exports = Service
