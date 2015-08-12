@@ -384,25 +384,35 @@ describe 'Service', ->
       
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        bb.delay(250) #enough time to put message on queue
-        .then( ->
-          #force close connection
-          service.connection_manager.connection.close()
-        )  
+
         service.sendMessage('hellowworldservice', {})
       )
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world')
+
+        service.connection_manager.get_service_channel()
+        .then( (sc) ->
+          cn = "auto_delete_queue#{Math.random()}"
+          sc.checkQueue(cn)
+        )
+        .catch( (e) ->
+          console.log e, e.stack, "ASDASD"
+        )
+        .delay(100) #enough time to restart
       )
-      .catch( (err) ->
-        console.log err.stack
+      .then( ->
+
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        expect(content.body.hello).to.equal('world')
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
 
 
-    it 'should auto restart on service channel error and all messages should be successful', ->
+    it.skip 'should auto restart on service channel error and all messages should be successful', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> 
           {body: {hello: "world"}}
@@ -413,7 +423,7 @@ describe 'Service', ->
       bb.all([hello_service.start(), service.start()])
       .then( ->
         pms = []
-        for i in [1..100]
+        for i in [1..5000]
           pms.push service.sendMessage('hellowworldservice', {})
         #force close connection
         service.connection_manager.get_service_channel()
@@ -422,6 +432,9 @@ describe 'Service', ->
           sc.checkQueue(cn)
         )
         bb.all(pms)
+      )
+      .then( (rets) ->
+        console.log rets
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
