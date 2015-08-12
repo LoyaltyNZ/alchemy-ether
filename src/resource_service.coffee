@@ -1,4 +1,4 @@
-ebb = require "bluebird"
+bb = require "bluebird"
 _ = require('lodash')
 
 Service = require ('./service')
