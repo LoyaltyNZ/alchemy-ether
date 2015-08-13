@@ -10,7 +10,10 @@ Logger = require("./logger")
 
 class ResourceService
 
-  constructor: (@service_name, @resources = [], @options = {}) ->
+  constructor: (@service_name, @resource_list = [], @options = {}) ->
+    @resources = {}
+    for r in @resource_list
+      @resources[r.name] = r
 
     @session_client = new SessionClient(@options.memcache_uri)
     
@@ -30,12 +33,13 @@ class ResourceService
 
     @service_options.service_fn = (payload) =>
       #build the context slowly
-      resource = @get_resource(payload)
-      context = { 
-        resource: resource.name
-      }
+      context = {}
 
-      @get_interaction_id(payload)
+      @get_resource_name(payload)
+      .then( (name) =>
+        context.resource_name = name
+        @get_interaction_id(payload)
+      )
       .then( (interaction_id) =>
         context.interaction_id = interaction_id
         @get_method(payload)
@@ -55,8 +59,8 @@ class ResourceService
       )
       .then((session) =>
         context.session = session
-        
-        if resource[context.method].public
+        throw Bam.not_found(payload.path) if not context.resource_name
+        if @resources[context.resource_name][context.method].public
           true #method is set to public
         else
           @check_privilages(context)
@@ -67,7 +71,7 @@ class ResourceService
         log_data = _.cloneDeep(context)
         @logger.log_interaction(log_data, 'inbound')
         st = new Date().getTime()
-        bb.try( => resource[context.method](_.cloneDeep(context)))
+        bb.try( => @resources[context.resource_name][context.method](_.cloneDeep(context)))
         .then( (resp) =>
           #log response
           log_data.response = resp
@@ -113,9 +117,10 @@ class ResourceService
   start: ->
     bb.all([@service.start(), @session_client.connect()])
     .then( =>
-
-      
-      @service.addResourceToService()
+      promises = []
+      for resource in @resource_list
+        promises.push @service.addResourceToService(resource.topic)
+      bb.all(promises)
     )
     .then( =>
       console.log "ResourceService #{@service_name} Started with #{JSON.stringify(@options)}"
@@ -128,8 +133,11 @@ class ResourceService
     )
 
   #### private methods
-  get_resource: (payload) ->
-    @resources[0]
+  get_resource_name: (payload) ->
+    resource_topic = Util.pathToTopic(payload.path)
+    for resource in @resource_list
+      return bb.try( -> resource.name) if resource.matches_topic(resource_topic)
+    bb.try( -> null )
 
   get_body: (payload) ->
     bb.try( ->

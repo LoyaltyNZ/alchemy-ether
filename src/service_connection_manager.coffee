@@ -7,7 +7,7 @@ class ServiceConnectionManager
   log : (message) ->
     console.log "#{(new Date()).toISOString()} - #{@uuid} - #{message}"
 
-  constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
+  constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
     @state = 'stopped' # two states 'started' and 'stopped'
 
   get_connection: ->
@@ -47,8 +47,8 @@ class ServiceConnectionManager
       )
 
       service_channel.on('return', (message) =>
-        @log "Message Returned to Channel #{message}"
-        console.log "ASFSAASGSAG"
+        @log "Message Returned to Channel #{JSON.stringify(message.properties)}"
+        @returned_handler(message)
       )
 
       service_channel.on('close', =>
@@ -93,7 +93,7 @@ class ServiceConnectionManager
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
       .then( =>
-        service_channel.assertExchange("resources.exchange", 'direct')
+        service_channel.assertExchange("resources.exchange", 'topic')
       )
       .then( => 
         service_channel.consume(@service_queue_name, fn)
@@ -118,16 +118,19 @@ class ServiceConnectionManager
     )
 
 
-  addResourceToService: (resource_name) -> 
+  addResourceToService: (resource_topic) -> 
     @get_service_channel()
     .then( (service_channel) =>
-      service_channel.bindQueue(@service_queue_name, "resources.exchange", resource_name)
+      service_channel.bindQueue(@service_queue_name, "resources.exchange", resource_topic)
+    )
+    .then( =>
+      @log "Bound #{resource_topic} to resources.exchange"
     )
 
   sendMessageToService: (service, payload, options) ->
     @get_service_channel()
     .then( (service_channel) =>
-      options.mandatory = true
+      options.mandatory = true if options.type == 'http_request'
       service_channel.publish('', service, payload, options)
     )
 

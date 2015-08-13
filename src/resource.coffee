@@ -1,5 +1,8 @@
+Util = require("./util")
 class Resource
-  constructor: (@name) ->
+  constructor: (@name, @path) ->
+    @_base_topic = Util.pathToTopic(@path)
+    @topic = "#{@_base_topic}.#"
 
   create: (context) ->
     throw Bam.method_not_allowed()
@@ -10,10 +13,12 @@ class Resource
   show: (context) ->
     throw Bam.method_not_allowed()
 
-  list: (context) ->
-    throw Bam.method_not_allowed()
-
   delete: (context) ->
     throw Bam.method_not_allowed()
 
+
+  matches_topic: (try_topic) -> 
+    ret = _.startsWith(try_topic, @_base_topic)
+    console.log ret, try_topic, @topic
+    return ret
 module.exports = Resource

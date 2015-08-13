@@ -121,7 +121,7 @@ Bam.error = (err) ->
     body: {
       code: 'platform.fault'
       message: 'An unexpected error occurred'
-      stack: err
+      stack: err.stack
     }
   }
   

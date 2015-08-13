@@ -33,7 +33,15 @@ class Service
     else
       @service_queue_name = null
 
-    @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @uuid, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
+    @connection_manager = new ServiceConnectionManger(
+      @options.ampq_uri, 
+      @uuid, 
+      @service_queue_name, 
+      @receiveMessage, 
+      @response_queue_name, 
+      @processMessageResponse,
+      @processMessageReturned
+    )
 
   start: ->
     @connection_manager.start()
@@ -43,27 +51,42 @@ class Service
 
   # Send a message internally
   sendMessageToService: (service, payload) ->
-    @sendMessageToServiceOrResource(service, null, payload)
+    @sendMessageToServiceOrResource(service, payload)
 
-  sendMessageToResource: (resource, payload) ->
-    @sendMessageToServiceOrResource(null, resource, payload)
+  sendMessageToResource: (payload) ->
+    if not payload.path
+      throw "payload must contain path"
 
-  sendMessageToServiceOrResource: (service, resource, payload) ->
+    @sendMessageToServiceOrResource(null, payload)
 
-    # Add in headers if there are none
-    if !payload.headers
-      payload.headers = {}
+  sendMessageToServiceOrResource: (service, payload) ->
 
+    # Set Up Default 
+    http_payload = {
+      session_id:  payload.session_id
+      scheme:      payload.protocol    || 'http'
+      host:        payload.hostname    || 'localhost'
+      port:        payload.port        || 8080
+      path:        payload.path        || "/"
+      query:       payload.query       || {}
+      verb:        payload.verb        || "GET"
+      headers:     payload.headers     || {}
+      body:        payload.body        || {}
+      log:         payload.log         || {}
+    }
+    
     # If an x-interaction-id header is present in the payload's
     # headers we use it, otherwise generate one. The presence of an interaction
     # id indicates that this message originated internally since all external
     # http requests have anything that looks like an interaction id stripped
     # out of them in EdgeSplitter's onHTTPRequest function.
-    if !payload.headers['x-interaction-id']
-      payload.headers['x-interaction-id'] = Util.generateUUID()
+    if !http_payload.headers['x-interaction-id']
+      http_payload.headers['x-interaction-id'] = Util.generateUUID()
+
+    
 
     messageId = Util.generateUUID()
-    options =
+    http_message_options =
       messageId: messageId
       type: 'http_request'
       replyTo: @response_queue_name
@@ -89,25 +112,29 @@ class Service
     )
 
     if service
-      message_promise = @sendRawMessageToService(service, payload, options)
+      message_promise = @sendRawMessageToService(service, http_payload, http_message_options)
       .then( =>
         returned_promise
       )
-      message_promise.service = service
     else 
-      message_promise = @sendRawMessageToResource(resource, payload, options)
+      resource_topic = Util.pathToTopic(http_payload.path)
+      message_promise = @sendRawMessageToResource(resource_topic, http_payload, http_message_options)
       .then( =>
         returned_promise
       )
-      message_promise.resource = resource
     
     
     message_promise.messageId = messageId
-    message_promise.transactionId = payload.headers['x-interaction-id']
+    message_promise.transactionId = http_payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
     
     #Send the message on the queue
     message_promise
+
+  processMessageReturned: (msg) =>
+    deferred = @transactions[msg.properties.messageId]
+    return if not deferred
+    return deferred.reject("message returned")
 
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]
