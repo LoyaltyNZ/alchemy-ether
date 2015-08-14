@@ -94,7 +94,8 @@ class Service
       replyTo: @response_queue_name
       contentEncoding: '8bit'
       contentType: 'application/octet-stream'
-
+      expiration: @options.timeout
+      
     #create the deferred
     deferred = bb.defer()
     @transactions[messageId] = deferred
@@ -233,12 +234,10 @@ class Service
     @sendRawMessageToService(service, payload, options)
 
   sendRawMessageToService: (service, payload, options) ->
-    options.expiration = @options.timeout
     @connection_manager.sendMessageToService(service, msgpack.pack(payload), options)
 
   sendRawMessageToResource: (resource, payload, options) ->
     console.log "Sending message to resource"
-    options.expiration = @options.timeout
     @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
 
 
