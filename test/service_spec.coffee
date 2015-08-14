@@ -449,25 +449,32 @@ describe 'Service', ->
 
     it 'should auto restart on service channel error and all messages should be successful', ->
       hello_service = new Service('hellowworldservice',
-        service_fn: (payload) -> 
-          {body: {hello: "world"}}
+        service_fn: (payload) ->
+          console.log "RECIEVED MESSAGE"
+          bb.delay(500).then( -> console.log "REPLYING TO MESSAGE"; {body: {hello: "world"}})
       )
 
-      service = new Service('testService', {timeout: 1000})
+      service = new Service('testService', {timeout: 5000})
       
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        pms = []
-        for i in [1..100]
-          pms.push service.sendMessageToService('hellowworldservice', {})
-        #force close connection
-        service.connection_manager.get_service_channel()
-        .then( (sc) ->
-          cn = "auto_delete_queue#{Math.random()}"
-          sc.checkQueue(cn)
-        )
-        bb.all(pms)
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          service.connection_manager.get_service_channel()
+          .then( (sc) ->
+            cn = "auto_delete_queue#{Math.random()}"
+            sc.checkQueue(cn)
+          )
+        )  
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        expect(content.body.hello).to.equal('world')
+      )
+      .catch( (err) ->
+        console.log err.stack
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
+
