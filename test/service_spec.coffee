@@ -264,6 +264,32 @@ describe 'Service', ->
         )
         .finally( -> service.stop())
 
+      it 'should timeout message, so message is not read after timeout', ->
+        read_message = false
+        badservice = new Service('ts1', service_fn: -> read_message = true; {})
+        service = new Service('testService', timeout: 100)
+        bb.all([service.start(), badservice.start()])
+        .then( ->
+          badservice.stop()
+        )
+        .then( ->
+          service.sendMessageToService('ts1', {})
+          .then( ->
+            throw "It should not get here"
+          )
+          .catch(Service.TimeoutError, (err) ->
+            expect(Object.keys(service.transactions).length).to.equal(0)
+          )
+        )
+        .then( ->
+          badservice.start()
+        )
+        .delay(100)
+        .then( ->
+          expect(read_message).to.equal false
+        )
+        .finally( -> bb.all([service.stop(), badservice.stop()]))
+
       it 'should timeout when no message is returned and remove transaction deferred', ->
         badservice = new Service('ts1', service_fn: -> bb.delay(100))
         service = new Service('testService', timeout: 1)
