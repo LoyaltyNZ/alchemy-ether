@@ -1,10 +1,11 @@
 describe "Resource", ->
   describe "start stop", ->
     it 'should work', ->
-      resource = new Resource("testResource")
-      resource.start()      
+      resource = new Resource("testResource", '/v1/test_resource')
+      resource_service = new ResourceService('testResource', [resource])
+      resource_service.start()      
       .then(->
-        resource.stop()
+        resource_service.stop()
       )
 
 
@@ -106,10 +107,29 @@ describe "Resource", ->
       bb.all([service.start(), resource_service.start()])
       .then( ->
         badreq1 = service.sendMessageToResource({verb: "GET", path: "#{resource1_name}"})
+        .then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+        .catch(Service.MessageNotDeliveredError, (err) ->
+
+        )
+
         badreq2 = service.sendMessageToResource({verb: "GET", path: "/v2/#{resource1_name}"})
+        .then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+        .catch(Service.MessageNotDeliveredError, (err) ->
+        )
+        
         badreq3 = service.sendMessageToResource({verb: "GET", path: "/prefix#{resource1_path}"})
+        .then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+        .catch(Service.MessageNotDeliveredError, (err) ->
+        )
 
         bb.all([badreq1, badreq2, badreq3])
+
       )
       .finally(->
         bb.all([service.stop(), resource_service.stop()])
@@ -125,25 +145,27 @@ describe "Resource", ->
           service_fn: (req) -> 
             logging_messages += 1
         )
-        resource = new Resource(
-          "testResource", "testResource",
-          logging_endpoint: 'test.logging'
-        )
-        
-        resource.check_privilages = -> true
-        resource.show = (payload) -> return {body: {"hello": "world"}}
 
-        bb.all([logging_service.start(), service.start(), resource.start()])
+        resource = new Resource(
+          "resource"
+          "/v1/test_resource"
+        )
+
+        resource.show = (payload) -> return {body: {"hello": "world"}}
+        resource.show.public = true
+        resource_service = new ResourceService('testResource', [resource], logging_endpoint: 'test.logging')
+
+        bb.all([logging_service.start(), service.start(), resource_service.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
-          .delay(10)
+          service.sendMessageToResource({verb: "GET", path: "/v1/test_resource"})
+          .delay(20)
         )
         .spread((resp, body) ->
           console.log logging_messages
           expect(logging_messages).to.equal(2)
         )
         .finally(->
-          bb.all([logging_service.stop(), service.stop(), resource.stop()])
+          bb.all([logging_service.stop(), service.stop(), resource_service.stop()])
         )
 
       it 'should be able to add additional logging data to the logged events', ->
@@ -153,62 +175,72 @@ describe "Resource", ->
           service_fn: (req) ->
             log_message = req.data.response.log
         )
+
+
         resource = new Resource(
-          "testResource", "testResource",
-          logging_endpoint: 'test.logging'
+          "resource"
+          "/v1/test_resource"
         )
-        
-        resource.check_privilages = -> true
+
         resource.show = (payload) -> 
           return {
             body: { "hello": "world" }
             log:  { message: "log message" }
           }
+        resource.show.public = true
+        resource_service = new ResourceService('testResource', [resource], logging_endpoint: 'test.logging')
 
-        bb.all([logging_service.start(), service.start(), resource.start()])
+
+
+        bb.all([logging_service.start(), service.start(), resource_service.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
+          service.sendMessageToResource({verb: "GET", path: "/v1/test_resource"})
           .delay(10)
         )
         .spread((resp, body) ->
           log_message
         )
         .finally(->
-          bb.all([logging_service.stop(), service.stop(), resource.stop()])
+          bb.all([logging_service.stop(), service.stop(), resource_service.stop()])
         )
 
   describe 'unhappy', ->
     describe 'platfrom.error', ->
       it "unauthenticated", ->
         service = new Service('testService')
-        resource = new Resource("testResource")
-        resource.check_privilages = -> false
+        resource = new Resource("test_resource", '/v1/test_resource')
+        
+        resource.show.public = false
+        resource_service = new ResourceService('testResource', [resource])
+        resource_service.check_privilages = -> false
 
-        bb.all([service.start(), resource.start()])
+
+        bb.all([service.start(), resource_service.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
+          service.sendMessageToResource({verb: "GET", path: "/v1/test_resource"})
         )
         .spread((resp, body) ->
           expect(body.status_code).to.equal 403
         )
         .finally(->
-          bb.all([service.stop(), resource.stop()])
+          bb.all([service.stop(), resource_service.stop()])
         ) 
 
 
     describe 'service.error', ->
       it "should return 405 if not implemented method", ->
         service = new Service('testService')
-        resource = new Resource("testResource")
-        resource.check_privilages = -> true
+        resource = new Resource("test_resource", '/v1/test_resource')
+        resource.show.public = true
+        resource_service = new ResourceService('testResource', [resource])
 
-        bb.all([service.start(), resource.start()])
+        bb.all([service.start(), resource_service.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
+          service.sendMessageToResource({verb: "GET", path: "/v1/test_resource"})
         )
         .spread((resp, body) ->
           expect(body.status_code).to.equal 405
         )
         .finally(->
-          bb.all([service.stop(), resource.stop()])
+          bb.all([service.stop(), resource_service.stop()])
         )

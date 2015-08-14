@@ -1,4 +1,6 @@
 
+process.env.NODE_ENV = 'test'
+
 #Require test packages
 chai = require 'chai'
 chaiAsPromised = require("chai-as-promised")

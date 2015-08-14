@@ -1,4 +1,6 @@
 Util = require("./util")
+Bam = require './bam'
+
 class Resource
   constructor: (@name, @path) ->
     @_base_topic = Util.pathToTopic(@path)

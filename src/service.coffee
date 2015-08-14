@@ -3,9 +3,11 @@ msgpack = require('msgpack')
 Util = require("./util")
 ServiceConnectionManger = require('./service_connection_manager')
 _ = require('lodash')
+Errors = require ('./errors')
 
 class Service
   @TimeoutError = bb.TimeoutError
+  @MessageNotDeliveredError = Errors.MessageNotDeliveredError
 
   constructor: (@name, options = {}) ->
     @options = _.defaults(
@@ -134,7 +136,7 @@ class Service
   processMessageReturned: (msg) =>
     deferred = @transactions[msg.properties.messageId]
     return if not deferred
-    return deferred.reject("message returned")
+    return deferred.reject(new Service.MessageNotDeliveredError(msg.properties.messageId))
 
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]

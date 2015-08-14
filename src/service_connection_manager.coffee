@@ -47,7 +47,7 @@ class ServiceConnectionManager
       )
 
       service_channel.on('return', (message) =>
-        @log "Message Returned to Channel #{JSON.stringify(message.properties)}"
+        @log "Message Returned to Channel"
         @returned_handler(message)
       )
 
