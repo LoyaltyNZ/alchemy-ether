@@ -21,6 +21,5 @@ class Resource
 
   matches_topic: (try_topic) -> 
     ret = _.startsWith(try_topic, @_base_topic)
-    console.log ret, try_topic, @topic
     return ret
 module.exports = Resource

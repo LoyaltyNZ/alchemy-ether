@@ -128,7 +128,14 @@ describe "Resource", ->
         .catch(Service.MessageNotDeliveredError, (err) ->
         )
 
-        bb.all([badreq1, badreq2, badreq3])
+        badreq4 = service.sendMessageToResource({verb: "GET", path: "/v1/"})
+        .then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+        .catch(Service.MessageNotDeliveredError, (err) ->
+        )
+
+        bb.all([badreq1, badreq2, badreq3, badreq4])
 
       )
       .finally(->
@@ -161,7 +168,6 @@ describe "Resource", ->
           .delay(20)
         )
         .spread((resp, body) ->
-          console.log logging_messages
           expect(logging_messages).to.equal(2)
         )
         .finally(->
