@@ -135,9 +135,9 @@ class Service
     message_promise
 
   processMessageReturned: (msg) =>
-    deferred = @transactions[msg.properties.messageId]
+    deferred = @transactions[msg?.properties?.messageId]
     return if not deferred
-    return deferred.reject(new Service.MessageNotDeliveredError(msg.properties.messageId))
+    return deferred.reject(new Service.MessageNotDeliveredError(msg?.properties?.messageId, msg?.fields?.routingKey))
 
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]
@@ -230,14 +230,12 @@ class Service
     @connection_manager.addResourceToService(resource)
 
   replyToServiceMessage: (service, payload, options) ->
-
     @sendRawMessageToService(service, payload, options)
 
   sendRawMessageToService: (service, payload, options) ->
     @connection_manager.sendMessageToService(service, msgpack.pack(payload), options)
 
   sendRawMessageToResource: (resource, payload, options) ->
-    console.log "Sending message to resource"
     @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
 
 

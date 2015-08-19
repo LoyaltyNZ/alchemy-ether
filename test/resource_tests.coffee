@@ -92,6 +92,44 @@ describe "Resource", ->
         bb.all([service.stop(), resource_service.stop()])
       )
 
+    it 'should route to the resources at different levels', ->
+      resource1_name = random_resource()
+      resource1_path = "/#{resource1_name}"
+      resource1 = new Resource(resource1_name, resource1_path)
+      resource1.show = (payload) ->
+        return { body: {"iam": "level_1"} }
+      resource1.show.public = true
+
+      resource2_path = "/v1/#{resource1_name}"
+      resource2 = new Resource(random_resource(), resource2_path)
+      resource2.show = (payload) ->
+        return { body: {"iam": "level_2"} }
+      resource2.show.public = true
+
+      service_name = random_service()
+      resource_service = new ResourceService(service_name, [resource1, resource2])
+
+      service = new Service('testService')
+      bb.all([service.start(), resource_service.start()])
+      .then( ->
+        req1 = service.sendMessageToResource({verb: "GET", path: resource1_path})
+        req2 = service.sendMessageToResource({verb: "GET", path: resource2_path})
+
+        bb.all([req1, req2])
+      )
+      .then((resps) ->
+        [resp1, resp2 ] = resps.map( (x) -> x[1])
+        expect(resp1.body.iam).to.equal "level_1"
+        expect(resp1.status_code).to.equal 200
+
+        expect(resp2.body.iam).to.equal "level_2"
+        expect(resp2.status_code).to.equal 200
+      )
+      .finally(->
+        bb.all([service.stop(), resource_service.stop()])
+      )
+
+
     it 'should throw error if sending to resource that is not there', ->
       resource1_name = random_resource()
       resource1_path = "/v1/#{resource1_name}"
