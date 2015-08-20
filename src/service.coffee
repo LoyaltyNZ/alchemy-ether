@@ -96,21 +96,28 @@ class Service
       contentType: 'application/octet-stream'
       expiration: @options.timeout
       
-    #create the deferred
-    deferred = bb.defer()
-    @transactions[messageId] = deferred
-    returned_promise = deferred.promise
-
-    
-    returned_promise.timeout(@options.timeout)
-    .catch(bb.TimeoutError, (err) =>
-      return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
-      console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
-      deferred.reject(err)
+    #create the returned_promise
+    deferred = {}
+    returned_promise = new bb( (resolve, reject) ->
+      deferred.resolve_promise = resolve
+      deferred.reject_promise = reject
     )
 
-    #handle the response
-    returned_promise.finally( =>
+    @transactions[messageId] = deferred
+
+    returned_promise = returned_promise.timeout(@options.timeout)
+
+    returned_promise
+    .catch(bb.TimeoutError, (err) =>
+      return if returned_promise.isFulfilled() #Under stress the error can be thrown when already resolved
+      console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
+      deferred.reject_promise(err)
+    )
+    .catch(Service.MessageNotDeliveredError, (err) =>
+      console.warn "#{@uuid}: MessageNotDeliveredError for message ID `#{messageId}`"
+      deferred.reject_promise(err)
+    )
+    .finally( =>
       delete @transactions[messageId]
     )
 
@@ -126,7 +133,6 @@ class Service
         returned_promise
       )
     
-    
     message_promise.messageId = messageId
     message_promise.transactionId = http_payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
@@ -137,17 +143,17 @@ class Service
   processMessageReturned: (msg) =>
     deferred = @transactions[msg?.properties?.messageId]
     return if not deferred
-    return deferred.reject(new Service.MessageNotDeliveredError(msg?.properties?.messageId, msg?.fields?.routingKey))
+    return deferred.reject_promise(new Service.MessageNotDeliveredError(msg?.properties?.messageId, msg?.fields?.routingKey))
 
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]
 
     if not deferred? or msg.properties.type != 'http_response'
       console.warn "#{@uuid}: Received Unsolicited Response message ID `#{msg.properties.messageId}`, correlationId: `#{msg.properties.correlationId}` type '#{msg.properties.type}'"
-      deferred.reject("Property type wrong") if deferred
+      deferred.reject_promise("Property type wrong") if deferred
       return
 
-    deferred.resolve([msg, msgpack.unpack(msg.content)])
+    deferred.resolve_promise([msg, msgpack.unpack(msg.content)])
 
   receiveMessage: (msg) =>
     type = msg.properties.type
