@@ -73,20 +73,18 @@ class Service
       query:       payload.query       || {}
       verb:        payload.verb        || "GET"
       headers:     payload.headers     || {}
-      body:        payload.body        || {}
+      body:        payload.body        || ""
       log:         payload.log         || {}
     }
     
     # If an x-interaction-id header is present in the payload's
     # headers we use it, otherwise generate one. The presence of an interaction
     # id indicates that this message originated internally since all external
-    # http requests have anything that looks like an interaction id stripped
-    # out of them in EdgeSplitter's onHTTPRequest function.
+    # http requests will be stripped
     if !http_payload.headers['x-interaction-id']
       http_payload.headers['x-interaction-id'] = Util.generateUUID()
 
     
-
     messageId = Util.generateUUID()
     http_message_options =
       messageId: messageId
@@ -229,7 +227,6 @@ class Service
       console.log err.stack
       throw err
     )
-
 
 
   addResourceToService: (resource) ->
