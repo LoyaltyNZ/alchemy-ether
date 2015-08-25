@@ -251,7 +251,7 @@ describe 'Service', ->
         )
 
       it 'should return a message when trying to deliver to service that doesnt exist', ->
-        service = new Service('testService', timeout: 1)
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
           service.sendMessageToService('service1', {})

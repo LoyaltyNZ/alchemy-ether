@@ -109,11 +109,11 @@ class Service
     .catch(bb.TimeoutError, (err) =>
       return if returned_promise.isFulfilled() #Under stress the error can be thrown when already resolved
       console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
-      deferred.reject_promise(err)
+      throw err
     )
     .catch(Service.MessageNotDeliveredError, (err) =>
       console.warn "#{@uuid}: MessageNotDeliveredError for message ID `#{messageId}`"
-      deferred.reject_promise(err)
+      throw err
     )
     .finally( =>
       delete @transactions[messageId]
@@ -145,7 +145,6 @@ class Service
 
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]
-
     if not deferred? or msg.properties.type != 'http_response'
       console.warn "#{@uuid}: Received Unsolicited Response message ID `#{msg.properties.messageId}`, correlationId: `#{msg.properties.correlationId}` type '#{msg.properties.type}'"
       deferred.reject_promise("Property type wrong") if deferred
