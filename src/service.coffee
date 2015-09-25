@@ -157,15 +157,13 @@ class Service
 
     if type == 'metering_event'
       return @receiveUtilityEvent(msg)
-    else if type == 'hoodoo_service_middleware_amqp_log_message'
-      return @receiveUtilityEvent(msg)
     else if type == 'logging_event'
       return @receiveUtilityEvent(msg)
     else if type == 'http_request'
       return @receiveHTTPRequest(msg)
     else
-      console.warn "#{@uuid}: Received message with unsupported type #{type}"
-
+      console.warn "#{@uuid}: Processing unknown message type #{type}"
+      @receiveUtilityEvent(msg)
 
   receiveUtilityEvent: (msg) ->
     if msg.content
