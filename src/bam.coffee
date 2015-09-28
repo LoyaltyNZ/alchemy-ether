@@ -3,9 +3,9 @@ Util = require "./util"
 Bam = {}
 
 Bam.joi_validation_error = (joi_error) ->
-  errors = [] 
+  errors = []
   for deet in joi_error.details
-    switch deet.type 
+    switch deet.type
       when 'any.required'
         errors.push {
           code: "generic.required_field_missing"
@@ -90,7 +90,7 @@ Bam.not_allowed = ->
       message: "not allowed"
       reference: Util.generateUUID()
     }
-  } 
+  }
 
 Bam.not_found = (resource) ->
   {
@@ -101,7 +101,7 @@ Bam.not_found = (resource) ->
       message: "#{resource} not found"
       reference: Util.generateUUID()
     }
-  } 
+  }
 
 Bam.exists = (resource) ->
   {
@@ -112,7 +112,7 @@ Bam.exists = (resource) ->
       message: "#{resource} already exists"
       reference: Util.generateUUID()
     }
-  } 
+  }
 
 Bam.error = (err) ->
   error = {
@@ -121,7 +121,7 @@ Bam.error = (err) ->
     body: {
       code: 'platform.fault'
       message: 'An unexpected error occurred'
-      
+
     }
   }
 

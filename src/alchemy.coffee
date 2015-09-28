@@ -7,7 +7,7 @@ Util = require("./util")
 Logger = require './logger'
 
 module.exports = {
-  Service: Service, 
+  Service: Service,
   Resource: Resource,
   ResourceService: ResourceService
   Bam: Bam

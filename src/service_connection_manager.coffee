@@ -55,18 +55,22 @@ class ServiceConnectionManager
         @log "Service Channel Closed"
         @_service_channel = null
         if @state == 'started'
-          @log "AMQP Service Channel closed, restarting service" 
+          @log "AMQP Service Channel closed, restarting service"
           #then restart
           @get_service_channel()
-        else 
-          @log "Service Channel stopped" 
+        else
+          @log "Service Channel stopped"
           #dont restart
       )
 
       @create_response_queue(service_channel)
+      .then( => @assert_logging_exchange(service_channel))
       .then( => @create_service_queue(service_channel))
       .then( -> service_channel) #return the service channel
     )
+
+  assert_logging_exchange: (service_channel) ->
+    service_channel.assertExchange("logging.exchange", 'fanout')
 
   create_response_queue: (service_channel) ->
     if @response_queue_name
@@ -95,13 +99,13 @@ class ServiceConnectionManager
       .then( =>
         service_channel.assertExchange("resources.exchange", 'topic')
       )
-      .then( => 
+      .then( =>
         service_channel.consume(@service_queue_name, fn)
-      ) 
+      )
     else
       bb.try( -> )
 
-  start: ->   
+  start: ->
     @state = 'started'
     # If queue names are nil then they are not created
     try
@@ -118,7 +122,7 @@ class ServiceConnectionManager
     )
 
 
-  addResourceToService: (resource_topic) -> 
+  addResourceToService: (resource_topic) ->
     @get_service_channel()
     .then( (service_channel) =>
       service_channel.bindQueue(@service_queue_name, "resources.exchange", resource_topic)
@@ -139,6 +143,37 @@ class ServiceConnectionManager
     .then( (service_channel) =>
       options.mandatory = true
       service_channel.publish("resources.exchange", resource, payload, options)
+    )
+
+
+  addServiceToLoggingExchange: () ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      service_channel.bindQueue(@service_queue_name, "logging.exchange", '')
+    )
+    .then( =>
+      @log "Bound #{@service_queue_name} to logging.exchange"
+    )
+
+  removeServiceToLoggingExchange: () ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      service_channel.unbindQueue(@service_queue_name, "logging.exchange", '')
+    )
+    .then( =>
+      @log "Unbound #{@service_queue_name} to logging.exchange"
+    )
+
+  logMessage: (payload, options) ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      service_channel.publish("logging.exchange", '', payload, options)
+    )
+
+  logMessageToService: (service, payload, options) ->
+    @get_service_channel()
+    .then( (service_channel) =>
+      service_channel.publish('', service, payload, options)
     )
 
 module.exports = ServiceConnectionManager

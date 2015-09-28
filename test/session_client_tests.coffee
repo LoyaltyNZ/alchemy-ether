@@ -21,11 +21,11 @@ describe 'SessionClient', ->
       session_client = create_session_client()
       session_client.connect()
       .then( ->
-        expect(session_client.connected()).to.be.true  
+        expect(session_client.connected()).to.be.true
         session_client.disconnect()
       )
       .then( ->
-        expect(session_client.connected()).to.be.false  
+        expect(session_client.connected()).to.be.false
       )
 
   describe '#getSession', ->

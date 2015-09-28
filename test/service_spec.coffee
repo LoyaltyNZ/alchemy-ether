@@ -8,14 +8,14 @@ describe 'Service', ->
   describe '#start', ->
     it 'should successfully start', ->
       service = new Service("testService")
-      service.start()      
+      service.start()
       .then(->
         service.stop()
       )
 
     it 'should start stop then start', ->
       service = new Service("testService")
-      service.start()      
+      service.start()
       .then(->
         console.log "started 1"
         service.stop()
@@ -70,7 +70,7 @@ describe 'Service', ->
     it 'should exist after creation', ->
       service = new Service("testService")
       exists = false
-      service.start()      
+      service.start()
       .then(->
         response_queue_exists(service)
         .then( (ret) ->
@@ -87,7 +87,7 @@ describe 'Service', ->
     it 'should exist after no messages (as there is a consumer)', ->
       service = new Service("testService")
       exists = false
-      service.start()      
+      service.start()
       .delay(2000)
       .then( ->
         response_queue_exists(service)
@@ -105,7 +105,7 @@ describe 'Service', ->
     it 'should exist after stopping and restarting (if quick enough)', ->
       service = new Service("testService")
       exists = false
-      service.start()      
+      service.start()
       .then(->
         service.stop()
       )
@@ -123,7 +123,7 @@ describe 'Service', ->
     it 'should not exist after stopping for a longer period of time', ->
       service = new Service("testService")
       exists = false
-      service.start()      
+      service.start()
       .then(->
         service.stop()
       )
@@ -138,13 +138,53 @@ describe 'Service', ->
         expect(exists).to.equal false
       )
 
+  describe 'logging service', ->
+    it 'should not recieve logging events if not listening to logging', ->
+      recieved = false
+      service = new Service('notTestLoggingService', service_fn: (logging_message) ->
+        console.log "BADBAD", logging_message
+        recieved = true
+      )
+
+      bb.all([service.start()])
+      .then( ->
+        service.logMessage({hello: "nobody"})
+      )
+      .delay(10)
+      .then( ->
+        expect(recieved).to.be.false
+      )
+      .finally( -> bb.all([service.stop()]))
+
+    it 'should recieve logging messages ' , ->
+      recieved = false
+      service = new Service('testLoggingService', service_fn: (logging_message) ->
+        recieved = true
+      )
+      bb.all([service.start()])
+      .then( ->
+        service.listenToLogs()
+      )
+      .then( ->
+        service.logMessage({hello: "world"})
+      )
+      .delay(10)
+      .then( ->
+        expect(recieved).to.be.true
+      )
+      .finally( ->
+        service.unlistenToLogs()
+        .then( ->
+          service.stop()
+        )
+      )
 
   describe '#sendRawMessageToService', ->
     it 'should work', ->
       service = new Service('push')
       s1 = new Service('pull')
       bb.all([service.start(), s1.start()])
-      .then( -> 
+      .then( ->
         service.sendRawMessageToService('pull', {}, {})
       )
       .finally( -> bb.all([service.stop(), s1.stop()]))
@@ -231,13 +271,13 @@ describe 'Service', ->
         .finally( -> service.stop())
 
       it 'should remove transaction after response', ->
-        hello_service = new Service('hellowworldservice', 
-          timeout: 10, 
+        hello_service = new Service('hellowworldservice',
+          timeout: 10,
           service_fn: (payload) -> {body: {hello: "world"}}
         )
 
         service = new Service('testService')
-        
+
         bb.all([hello_service.start(), service.start()])
         .then( ->
           service.sendMessageToService('hellowworldservice', {})
@@ -307,14 +347,14 @@ describe 'Service', ->
 
   describe "option responce_queue", ->
     it 'should not listen to a service queue if false', ->
-      hello_service = new Service('hellowworldservice', 
+      hello_service = new Service('hellowworldservice',
         timeout: 10,
         responce_queue: false,
         service_fn: (payload) -> {body: {hello: "world"}}
       )
-      
+
       service = new Service('testService')
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
@@ -326,14 +366,14 @@ describe 'Service', ->
 
   describe "option service_queue", ->
     it 'should not listen to a service queue if false', ->
-      hello_service = new Service('hellowworldservice', 
+      hello_service = new Service('hellowworldservice',
         timeout: 10,
         service_queue: false,
         service_fn: (payload) -> {body: {hello: "world"}}
       )
-      
+
       service = new Service('testService')
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
@@ -341,7 +381,7 @@ describe 'Service', ->
           throw "It should not get here"
         )
         .catch(Service.TimeoutError, (err) ->
-          
+
         )
       )
       .finally(
@@ -355,7 +395,7 @@ describe 'Service', ->
       )
 
       service = new Service('testService')
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
@@ -369,12 +409,12 @@ describe 'Service', ->
       )
 
     it "should be able to alter status", ->
-      hello_service = new Service('hellowworldservice', 
+      hello_service = new Service('hellowworldservice',
         service_fn: (payload) -> {body: {hello: "world"}, status_code: 201}
       )
 
       service = new Service('testService')
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
@@ -391,12 +431,12 @@ describe 'Service', ->
   describe "unhappy path", ->
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
-        service_fn: (payload) -> 
+        service_fn: (payload) ->
           bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService', {timeout: 5000})
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         bb.delay(250) #enough time to put message on queue
@@ -406,7 +446,7 @@ describe 'Service', ->
           .then( ->
             service.start()
           )
-        )  
+        )
         service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
@@ -421,19 +461,19 @@ describe 'Service', ->
 
     it 'should auto resart', ->
       hello_service = new Service('hellowworldservice',
-        service_fn: (payload) -> 
+        service_fn: (payload) ->
           bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService', {timeout: 5000})
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         bb.delay(250) #enough time to put message on queue
         .then( ->
           #force close connection
           service.connection_manager.connection.close()
-        )  
+        )
         service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
@@ -455,7 +495,7 @@ describe 'Service', ->
       )
 
       service = new Service('testService', {timeout: 5000})
-      
+
       bb.all([hello_service.start(), service.start()])
       .then( ->
         bb.delay(250) #enough time to put message on queue
@@ -465,7 +505,7 @@ describe 'Service', ->
             cn = "auto_delete_queue#{Math.random()}"
             sc.checkQueue(cn)
           )
-        )  
+        )
         service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
@@ -477,4 +517,5 @@ describe 'Service', ->
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
+
 

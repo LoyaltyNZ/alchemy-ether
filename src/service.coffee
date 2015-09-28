@@ -36,11 +36,11 @@ class Service
       @service_queue_name = null
 
     @connection_manager = new ServiceConnectionManger(
-      @options.ampq_uri, 
-      @uuid, 
-      @service_queue_name, 
-      @receiveMessage, 
-      @response_queue_name, 
+      @options.ampq_uri,
+      @uuid,
+      @service_queue_name,
+      @receiveMessage,
+      @response_queue_name,
       @processMessageResponse,
       @processMessageReturned
     )
@@ -63,7 +63,7 @@ class Service
 
   sendMessageToServiceOrResource: (service, payload) ->
 
-    # Set Up Default 
+    # Set Up Default
     http_payload = {
       session_id:  payload.session_id
       scheme:      payload.protocol    || 'http'
@@ -76,7 +76,7 @@ class Service
       body:        payload.body        || ""
       log:         payload.log         || {}
     }
-    
+
     # If an x-interaction-id header is present in the payload's
     # headers we use it, otherwise generate one. The presence of an interaction
     # id indicates that this message originated internally since all external
@@ -84,7 +84,7 @@ class Service
     if !http_payload.headers['x-interaction-id']
       http_payload.headers['x-interaction-id'] = Util.generateUUID()
 
-    
+
     messageId = Util.generateUUID()
     http_message_options =
       messageId: messageId
@@ -93,7 +93,7 @@ class Service
       contentEncoding: '8bit'
       contentType: 'application/octet-stream'
       expiration: @options.timeout
-      
+
     #create the returned_promise
     deferred = {}
     returned_promise = new bb( (resolve, reject) ->
@@ -124,17 +124,17 @@ class Service
       .then( =>
         returned_promise
       )
-    else 
+    else
       resource_topic = Util.pathToTopic(http_payload.path)
       message_promise = @sendRawMessageToResource(resource_topic, http_payload, http_message_options)
       .then( =>
         returned_promise
       )
-    
+
     message_promise.messageId = messageId
     message_promise.transactionId = http_payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
-    
+
     #Send the message on the queue
     message_promise
 
@@ -167,14 +167,14 @@ class Service
 
   receiveUtilityEvent: (msg) ->
     if msg.content
-      payload = msgpack.unpack(msg.content) 
+      payload = msgpack.unpack(msg.content)
     else
       payload = {}
     bb.try( => @options.service_fn(payload))
 
   receiveHTTPRequest: (msg) ->
     if msg.content
-      payload = msgpack.unpack(msg.content) 
+      payload = msgpack.unpack(msg.content)
     else
       payload = {body: {}, headers: {}}
 
@@ -188,21 +188,21 @@ class Service
 
     #process the message
     # TODO log incoming call
-    bb.try( => 
+    bb.try( =>
       @options.service_fn(payload)
     )
     .then( (response = {}) =>
       #service function must return a response object with
       # {
-      #   body: 
+      #   body:
       #   status_code:
       #   headers: {}
       # }
       #1. JSON body
       #2. RESPONSE Object
-      #3. 
+      #3.
       #reply if the information is there
-      
+
       resp = {}
       resp.body = response.body || {}
       resp.status_code =  response.status_code || 200
@@ -212,13 +212,13 @@ class Service
       @replyToServiceMessage(
         service_to_reply_to,
         resp,
-        { 
-          type: 'http_response', 
+        {
+          type: 'http_response',
           correlationId: message_replying_to,
           messageId: this_message_id
         }
       )
-        
+
     ).catch( (err) ->
       console.log "SEND MESSAGE ERROR"
       console.log err.stack
@@ -238,5 +238,19 @@ class Service
   sendRawMessageToResource: (resource, payload, options) ->
     @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
 
+
+  listenToLogs: () ->
+    @connection_manager.addServiceToLoggingExchange()
+
+  unlistenToLogs: () ->
+    @connection_manager.removeServiceToLoggingExchange()
+
+  logMessage: (log_message, options = {}) ->
+    options = _.defaults(options, {type: 'logging_event'})
+    @connection_manager.logMessage(msgpack.pack(log_message), options)
+
+  logMessageToService: (service, log_message, options) ->
+    options = _.defaults(options, {type: 'logging_event'})
+    @connection_manager.logMessageToService(service, msgpack.pack(log_message), options)
 
 module.exports = Service

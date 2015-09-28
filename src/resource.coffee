@@ -19,7 +19,7 @@ class Resource
     throw Bam.method_not_allowed()
 
 
-  matches_topic: (try_topic) -> 
+  matches_topic: (try_topic) ->
     ret = _.startsWith(try_topic, @_base_topic)
     return ret
 module.exports = Resource

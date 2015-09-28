@@ -3,7 +3,7 @@ describe "Resource", ->
     it 'should work', ->
       resource = new Resource("testResource", '/v1/test_resource')
       resource_service = new ResourceService('testResource', [resource])
-      resource_service.start()      
+      resource_service.start()
       .then(->
         resource_service.stop()
       )
@@ -68,7 +68,7 @@ describe "Resource", ->
         req3 = service.sendMessageToResource({verb: "GET", path: "#{resource1_path}/"})
         req4 = service.sendMessageToResource({verb: "GET", path: "#{resource1_path}/identifier"})
         req5 = service.sendMessageToResource({verb: "GET", path: "#{resource1_path}/identifier/ksecond"})
-        
+
         bb.all([req1, req2, req3, req4, req5])
       )
       .then((resps) ->
@@ -158,7 +158,7 @@ describe "Resource", ->
         )
         .catch(Service.MessageNotDeliveredError, (err) ->
         )
-        
+
         badreq3 = service.sendMessageToResource({verb: "GET", path: "/prefix#{resource1_path}"})
         .then( ->
           throw "SHOULD NOT GET HERE"
@@ -186,8 +186,8 @@ describe "Resource", ->
       it 'should log 2 (inbound and outbound) messages', ->
         service = new Service('testService')
         logging_messages = 0
-        logging_service = new Service('test.logging', 
-          service_fn: (req) -> 
+        logging_service = new Service('test.logging',
+          service_fn: (req) ->
             logging_messages += 1
         )
 
@@ -215,7 +215,7 @@ describe "Resource", ->
       it 'should be able to add additional logging data to the logged events', ->
         service = new Service('testService')
         log_message = null
-        logging_service = new Service('test.logging', 
+        logging_service = new Service('test.logging',
           service_fn: (req) ->
             log_message = req.data.response.log
         )
@@ -226,7 +226,7 @@ describe "Resource", ->
           "/v1/test_resource"
         )
 
-        resource.show = (payload) -> 
+        resource.show = (payload) ->
           return {
             body: { "hello": "world" }
             log:  { message: "log message" }
@@ -253,7 +253,7 @@ describe "Resource", ->
       it "unauthenticated", ->
         service = new Service('testService')
         resource = new Resource("test_resource", '/v1/test_resource')
-        
+
         resource.show.public = false
         resource_service = new ResourceService('testResource', [resource])
         resource_service.check_privilages = -> false
@@ -268,7 +268,7 @@ describe "Resource", ->
         )
         .finally(->
           bb.all([service.stop(), resource_service.stop()])
-        ) 
+        )
 
 
     describe 'service.error', ->

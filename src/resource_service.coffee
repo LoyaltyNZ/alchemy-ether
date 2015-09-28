@@ -16,7 +16,7 @@ class ResourceService
       @resources[r.name] = r
 
     @session_client = new SessionClient(@options.memcache_uri)
-    
+
     @options = _.defaults(
       @options,
       {
@@ -88,7 +88,7 @@ class ResourceService
             bam_err = err
           else
             bam_err = Bam.error(err)
-          console.log "Service Error #{JSON.stringify(bam_err)}"; 
+          console.log "Service Error #{JSON.stringify(bam_err)}";
           log_data.errors = bam_err
           log_data.id = bam_err.body.reference
           @logger.log_interaction(log_data, 'outbound', 'error')
@@ -101,7 +101,7 @@ class ResourceService
           bam_err = err
         else
           bam_err = Bam.error(err)
-        console.log "Platform Error #{JSON.stringify(bam_err)}"; 
+        console.log "Platform Error #{JSON.stringify(bam_err)}";
 
         log_data = _.clone(context)
         log_data.errors = bam_err
@@ -196,10 +196,10 @@ class ResourceService
 
 
       method_permissions = resource_permissions[context.method]
-      
+
       if method_permissions
         if method_permissions == 'allow'
-          return allowed 
+          return allowed
         else
           return not_allowed
 
