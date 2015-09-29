@@ -142,7 +142,6 @@ describe 'Service', ->
     it 'should not recieve logging events if not listening to logging', ->
       recieved = false
       service = new Service('notTestLoggingService', service_fn: (logging_message) ->
-        console.log "BADBAD", logging_message
         recieved = true
       )
 
