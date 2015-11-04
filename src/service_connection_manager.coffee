@@ -72,6 +72,7 @@ class ServiceConnectionManager
         service_channel.ack(msg)
         @response_handler(msg)
 
+
       service_channel.assertQueue(@response_queue_name, {expires: 1000})
       .then( (response_queue) =>
         service_channel.consume(@response_queue_name, fn)

@@ -344,6 +344,46 @@ describe 'Service', ->
       )
 
   describe "unhappy path", ->
+    it 'should not lose the message if a worker dies', ->
+      recieved_but_not_acked = false
+      recieved_second_time = false
+      hello_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_but_not_acked = true
+          return bb.delay(500) #will wait for a bit while I kill it
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      backup_helloworld_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          return {}
+      )
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+      )
+      .then( ->
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          #close connection
+          hello_service.stop()
+        )
+      )
+      .then( ->
+        expect(recieved_but_not_acked).to.equal true
+
+        #start another service that doesnt die
+        backup_helloworld_service.start()
+      )
+      .delay(20)
+      .then( ->
+        expect(recieved_second_time).to.equal true
+      )
+      .finally(
+        -> bb.all([service.stop(), backup_helloworld_service.stop()])
+      )
+
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) ->
@@ -366,9 +406,6 @@ describe 'Service', ->
       )
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world')
-      )
-      .catch( (err) ->
-        console.log err.stack
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
