@@ -85,8 +85,17 @@ class ServiceConnectionManager
       @log "Creating service queue"
       fn = (msg) =>
         #@log "recieved service message ID `#{msg.properties.messageId}`"
-        service_channel.ack(msg)
-        @service_handler(msg)
+        #once the service has finished
+        bb.try( => @service_handler(msg))
+        .then( (ret) ->
+          ret
+        )
+        .catch( (e) ->
+          console.log "Service Function Error #{e.stack}"
+        )
+        .finally( ->
+          service_channel.ack(msg)
+        )
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
       .then( =>

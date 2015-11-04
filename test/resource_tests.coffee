@@ -2,7 +2,7 @@ describe "Resource", ->
   describe "start stop", ->
     it 'should work', ->
       resource = new Resource("testResource")
-      resource.start()      
+      resource.start()
       .then(->
         resource.stop()
       )
@@ -33,21 +33,23 @@ describe "Resource", ->
       it 'should log 2 (inbound and outbound) messages', ->
         service = new Service('testService')
         logging_messages = 0
-        logging_service = new Service('test.logging', 
-          service_fn: (req) -> 
+        logging_service = new Service('test.logging',
+          service_fn: (req) ->
+            console.log req
             logging_messages += 1
         )
+
         resource = new Resource(
           "testResource", "testResource",
           logging_endpoint: 'test.logging'
         )
-        
+
         resource.check_privilages = -> true
         resource.show = (payload) -> return {body: {"hello": "world"}}
 
         bb.all([logging_service.start(), service.start(), resource.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
+          service.sendMessage('testResource', {verb: "GET", body: "1"})
           .delay(10)
         )
         .spread((resp, body) ->
@@ -61,7 +63,7 @@ describe "Resource", ->
       it 'should be able to add additional logging data to the logged events', ->
         service = new Service('testService')
         log_message = null
-        logging_service = new Service('test.logging', 
+        logging_service = new Service('test.logging',
           service_fn: (req) ->
             log_message = req.data.response.log
         )
@@ -69,9 +71,9 @@ describe "Resource", ->
           "testResource", "testResource",
           logging_endpoint: 'test.logging'
         )
-        
+
         resource.check_privilages = -> true
-        resource.show = (payload) -> 
+        resource.show = (payload) ->
           return {
             body: { "hello": "world" }
             log:  { message: "log message" }
@@ -79,11 +81,11 @@ describe "Resource", ->
 
         bb.all([logging_service.start(), service.start(), resource.start()])
         .then( ->
-          service.sendMessage('testResource', {verb: "GET"})
+          service.sendMessage('testResource', {verb: "GET", body: "2"})
           .delay(10)
         )
         .spread((resp, body) ->
-          log_message
+          expect(log_message.message).to.equal "log message"
         )
         .finally(->
           bb.all([logging_service.stop(), service.stop(), resource.stop()])
@@ -105,7 +107,7 @@ describe "Resource", ->
         )
         .finally(->
           bb.all([service.stop(), resource.stop()])
-        ) 
+        )
 
 
     describe 'service.error', ->
