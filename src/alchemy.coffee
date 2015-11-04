@@ -6,8 +6,8 @@ Util = require("./util")
 Logger = require './logger'
 
 module.exports = {
-  Service: Service, 
-  Resource: Resource, 
+  Service: Service,
+  Resource: Resource,
   Bam: Bam
   SessionClient: SessionClient
   Util: Util

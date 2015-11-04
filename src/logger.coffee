@@ -3,7 +3,7 @@ Util = require("./util")
 class Logger
 
   constructor: (@service, @logging_queue='platform.logging') ->
-  
+
   log_interaction: (log_data, code, level = 'info') ->
     data = {
       id: log_data.id || Util.generateUUID()
@@ -21,7 +21,7 @@ class Logger
 
     options =
       type: 'logging_event'
-  
+
     @service.sendRawMessage(@logging_queue, data, options)
 
 

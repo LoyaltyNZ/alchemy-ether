@@ -15,7 +15,7 @@ class SessionClient
     @_memcached = bb.promisifyAll(@_memcached)
 
     @_memcached.statsAsync()
-    .then( (data) => 
+    .then( (data) =>
       @
     )
     .catch( ->
@@ -30,7 +30,7 @@ class SessionClient
     @_memcached.getAsync("#{@_session_namespace}#{session_id}")
     .then( (data) ->
       return null unless data?
-      try 
+      try
         return JSON.parse(data)
       catch e
         throw "Session is Corrupt (#{e})"
@@ -40,7 +40,7 @@ class SessionClient
     @_memcached.getAsync("#{@_caller_namespace}#{caller_id}")
     .then( (data) ->
       return null unless data?
-      try 
+      try
         return JSON.parse(data)
       catch e
         throw "Session is Corrupt (#{e})"

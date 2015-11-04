@@ -70,7 +70,7 @@ class Service
     @transactions[messageId] = deferred
     returned_promise = deferred.promise
 
-    
+
     returned_promise.timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
       return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
@@ -93,13 +93,13 @@ class Service
     message_promise.messageId = messageId
     message_promise.transactionId = payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
-    
+
     #Send the message on the queue
-    
+
     message_promise
 
   processMessageResponse: (msg) =>
-    
+
     deferred = @transactions[msg.properties.correlationId]
 
     if not deferred? or msg.properties.type != 'http_response'
@@ -111,7 +111,7 @@ class Service
 
   receiveMessage: (msg) =>
     type = msg.properties.type
-    
+
     if type == 'metering_event'
       return @receiveUtilityEvent(msg)
     else if type == 'hoodoo_service_middleware_amqp_log_message'
@@ -126,14 +126,14 @@ class Service
 
   receiveUtilityEvent: (msg) ->
     if msg.content
-      payload = msgpack.unpack(msg.content) 
+      payload = msgpack.unpack(msg.content)
     else
       payload = {}
     bb.try( => @options.service_fn(payload))
 
   receiveHTTPRequest: (msg) ->
     if msg.content
-      payload = msgpack.unpack(msg.content) 
+      payload = msgpack.unpack(msg.content)
     else
       payload = {body: {}, headers: {}}
 
@@ -147,21 +147,21 @@ class Service
 
     #process the message
     # TODO log incoming call
-    bb.try( => 
+    bb.try( =>
       @options.service_fn(payload)
     )
     .then( (response = {}) =>
       #service function must return a response object with
       # {
-      #   body: 
+      #   body:
       #   status_code:
       #   headers: {}
       # }
       #1. JSON body
       #2. RESPONSE Object
-      #3. 
+      #3.
       #reply if the information is there
-      
+
       resp = {}
       resp.body = response.body || {}
       resp.status_code =  response.status_code || 200
@@ -170,14 +170,14 @@ class Service
 
       @sendRawMessage(
         queue_to_reply_to,
-        resp, 
-        { 
-          type: 'http_response', 
+        resp,
+        {
+          type: 'http_response',
           correlationId: message_replying_to,
           messageId: this_message_id
         }
       )
-        
+
     ).catch( (err) ->
       console.log "SEND MESSAGE ERROR"
       console.log err.stack
@@ -188,7 +188,7 @@ class Service
     try
       @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
     catch error
-      bb.try( -> 
+      bb.try( ->
         console.error "#sendRawMessage ERROR"
         throw error
       )

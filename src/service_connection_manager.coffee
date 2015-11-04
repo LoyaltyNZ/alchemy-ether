@@ -51,11 +51,11 @@ class ServiceConnectionManager
         @log "Service Channel Closed"
         @_service_channel = null
         if @state == 'started'
-          @log "AMQP Service Channel closed, restarting service" 
+          @log "AMQP Service Channel closed, restarting service"
           #then restart
           @get_service_channel()
-        else 
-          @log "Service Channel stopped" 
+        else
+          @log "Service Channel stopped"
           #dont restart
       )
 
@@ -88,13 +88,13 @@ class ServiceConnectionManager
         @service_handler(msg)
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
-      .then( => 
+      .then( =>
         service_channel.consume(@service_queue_name, fn)
-      ) 
+      )
     else
       bb.try( -> )
 
-  start: ->   
+  start: ->
     @state = 'started'
     # If queue names are nil then they are not created
     try

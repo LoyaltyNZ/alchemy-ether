@@ -16,7 +16,7 @@ class Resource
       @endpoint = @name
 
     @session_client = new SessionClient(@options.memcache_uri)
-    
+
     @options = _.defaults(
       @options,
       {
@@ -24,7 +24,7 @@ class Resource
       }
     )
 
-    
+
 
     @service_options = {
       service_queue: true
@@ -34,7 +34,7 @@ class Resource
 
     @service_options.service_fn = (payload) =>
       #build the context slowly
-      context = { 
+      context = {
         resource: @name
       }
 
@@ -83,7 +83,7 @@ class Resource
             bam_err = err
           else
             bam_err = Bam.error(err)
-          console.log "Service Error #{JSON.stringify(bam_err)}"; 
+          console.log "Service Error #{JSON.stringify(bam_err)}";
           log_data.errors = bam_err
           log_data.id = bam_err.body.reference
           @logger.log_interaction(log_data, 'outbound', 'error')
@@ -96,7 +96,7 @@ class Resource
           bam_err = err
         else
           bam_err = Bam.error(err)
-        console.log "Platform Error #{JSON.stringify(bam_err)}"; 
+        console.log "Platform Error #{JSON.stringify(bam_err)}";
 
         log_data = _.clone(context)
         log_data.errors = bam_err
@@ -197,10 +197,10 @@ class Resource
 
 
       method_permissions = resource_permissions[context.method]
-      
+
       if method_permissions
         if method_permissions == 'allow'
-          return allowed 
+          return allowed
         else
           return not_allowed
 
