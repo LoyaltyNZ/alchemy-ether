@@ -69,6 +69,8 @@ class ServiceConnectionManager
       @log "Creating response queue"
       fn = (msg) =>
         #@log "recieved response message ID `#{JSON.stringify(msg.properties)}`"
+
+        # response immediately acks because no other service is listening to it
         service_channel.ack(msg)
         @response_handler(msg)
 
@@ -84,17 +86,26 @@ class ServiceConnectionManager
     if @service_queue_name
       @log "Creating service queue"
       fn = (msg) =>
-        #@log "recieved service message ID `#{msg.properties.messageId}`"
-        #once the service has finished
+        # @log "recieved service message ID `#{msg.properties.messageId}`"
+        #
+        # Conditions
+        # 1. The Service Function Succeeds
+        # 2. The Service Function Errors
+        # 3. The Service is killed or dies while processing the message
+
+        # 1. will ack the message
+        # 2. will log the error, ack the message, then propagate the error (which may kill the service)
+        # 3. will cause the service channel to die which will not ack the message
+        #
         bb.try( => @service_handler(msg))
         .then( (ret) ->
+          service_channel.ack(msg)
           ret
         )
         .catch( (e) ->
-          console.log "Service Function Error #{e.stack}"
-        )
-        .finally( ->
           service_channel.ack(msg)
+          console.error e
+          throw e
         )
 
       service_channel.assertQueue(@service_queue_name, {durable: false})

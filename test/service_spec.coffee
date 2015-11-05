@@ -344,50 +344,74 @@ describe 'Service', ->
       )
 
   describe "unhappy path", ->
-    it 'should not lose the message if a worker dies', ->
-      recieved_but_not_acked = false
+    it 'should still ack if the service throws an error', ->
+      recieved_first_time = false
       recieved_second_time = false
-      hello_service = new Service('hellowworldservice',
+      dead_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          recieved_but_not_acked = true
+          recieved_first_time = true
+          throw "ERROR"
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      good_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          {}
+      )
+
+      bb.all([dead_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+        bb.delay(100).then( -> dead_service.stop())
+      )
+      .then( ->
+        good_service.start().delay(10) # should get the message that was lost after a bit
+      )
+      .then( ->
+        expect(recieved_first_time).to.equal true
+        expect(recieved_second_time).to.equal false
+      )
+      .finally(
+        -> bb.all([service.stop(), good_service.stop()])
+      )
+
+    it 'should not lose the message if a worker dies', ->
+      recieved_first_time = false
+      recieved_second_time = false
+      dead_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_first_time = true
           return bb.delay(500) #will wait for a bit while I kill it
       )
 
       service = new Service('testService', {timeout: 5000})
-      backup_helloworld_service = new Service('hellowworldservice',
+      good_service = new Service('hellowworldservice',
         service_fn: (payload) ->
           recieved_second_time = true
-          return {}
+          {}
       )
-      bb.all([hello_service.start(), service.start()])
+
+      bb.all([dead_service.start(), service.start()])
       .then( ->
         service.sendMessage('hellowworldservice', {})
+        bb.delay(100).then( -> dead_service.stop())
       )
       .then( ->
-        bb.delay(250) #enough time to put message on queue
-        .then( ->
-          #close connection
-          hello_service.stop()
-        )
+        good_service.start().delay(10) # should get the message that was lost after a bit
       )
       .then( ->
-        expect(recieved_but_not_acked).to.equal true
-
-        #start another service that doesnt die
-        backup_helloworld_service.start()
-      )
-      .delay(20)
-      .then( ->
+        expect(recieved_first_time).to.equal true
         expect(recieved_second_time).to.equal true
       )
       .finally(
-        -> bb.all([service.stop(), backup_helloworld_service.stop()])
+        -> bb.all([service.stop(), good_service.stop()])
       )
 
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          bb.delay(500).then( -> {body: {hello: "world"}})
+          bb.delay(500).then( -> {body: {hello: "world2"}})
       )
 
       service = new Service('testService', {timeout: 5000})
@@ -405,27 +429,27 @@ describe 'Service', ->
         service.sendMessage('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        expect(content.body.hello).to.equal('world')
+        console.log "content", content
+        expect(content.body.hello).to.equal('world2')
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
 
     it 'should auto resart', ->
-      hello_service = new Service('hellowworldservice',
+      hello_service = new Service('hellowworld1service',
         service_fn: (payload) ->
-          bb.delay(500).then( -> {body: {hello: "world"}})
+          bb.delay(500).then( -> {body: {hello: "world1"}})
       )
 
       service = new Service('testService', {timeout: 5000})
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessage('hellowworld1service', {})
       )
       .spread( (msg, content) ->
-        expect(content.body.hello).to.equal('world')
+        expect(content.body.hello).to.equal('world1')
 
         service.connection_manager.get_service_channel()
         .then( (sc) ->
@@ -433,16 +457,15 @@ describe 'Service', ->
           sc.checkQueue(cn)
         )
         .catch( (e) ->
-          console.log e, e.stack, "ASDASD"
+          console.log e, e.stack, "BAD SERVICE CHANNEL ERROR"
         )
         .delay(100) #enough time to restart
       )
       .then( ->
-
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessage('hellowworld1service', {})
       )
       .spread( (msg, content) ->
-        expect(content.body.hello).to.equal('world')
+        expect(content.body.hello).to.equal('world1')
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
