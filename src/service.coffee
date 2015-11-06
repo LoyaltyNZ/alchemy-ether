@@ -4,6 +4,8 @@ Util = require("./util")
 ServiceConnectionManger = require('./service_connection_manager')
 _ = require('lodash')
 
+Bam = require './bam'
+
 class Service
   @TimeoutError = bb.TimeoutError
 
@@ -40,6 +42,9 @@ class Service
 
   stop: ->
     @connection_manager.stop()
+
+  kill: ->
+    @connection_manager.kill()
 
   # Send a message internally
   sendMessage: (service, payload) ->
@@ -178,10 +183,23 @@ class Service
         }
       )
 
-    ).catch( (err) ->
-      console.log "SEND MESSAGE ERROR"
-      console.log err.stack
-      throw err
+    ).catch( (err) =>
+      console.log "HTTP_ERROR", err.stack
+      resp = Bam.error(err)
+      resp.headers = { 'x-interaction-id': payload.headers['x-interaction-id']}
+
+      # If all else fails
+
+      @sendRawMessage(
+        queue_to_reply_to,
+        resp,
+        {
+          type: 'http_response',
+          correlationId: message_replying_to,
+          messageId: this_message_id
+        }
+      )
+
     )
 
   sendRawMessage: (queue, payload, options) ->

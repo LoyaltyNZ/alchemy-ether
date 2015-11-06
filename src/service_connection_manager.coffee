@@ -8,9 +8,31 @@ class ServiceConnectionManager
     console.log "#{(new Date()).toISOString()} - #{@uuid} - #{message}"
 
   constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler) ->
-    @state = 'stopped' # two states 'started' and 'stopped'
+    # The states are:
+    #                 restarting
+    #                  A      |
+    #                 error  start()
+    #                  |      |
+    #     starting ---> started --|
+    #        A             |      |
+    #      start()        stop()  |
+    #        |             V      |
+    #     stopped   ->  stopping  |
+    #        |                    |
+    #        |--------------------|
+    #      kill()
+    #        |
+    #     killing
+    #        |
+    #        V
+    #      dead
+
+    @state = 'stopped'
 
   get_connection: ->
+    # can only get a connection if starting or started
+    throw new Error("#get_connection rejected state #{@state}") if !(@state == 'started' || @state == 'starting')
+
     return @_connection if @_connection
     @log "creating connection"
     @_connection = amqp.connect(@ampq_uri)
@@ -28,7 +50,10 @@ class ServiceConnectionManager
     )
 
   get_service_channel: ->
+    throw new Error("#get_service_channel rejected state #{@state}") if !(@state == 'started' || @state == 'starting')
+
     return @_service_channel if @_service_channel
+
     @log "creating service channel"
 
     @_service_channel = @get_connection()
@@ -50,13 +75,12 @@ class ServiceConnectionManager
       service_channel.on('close', =>
         @log "Service Channel Closed"
         @_service_channel = null
-        if @state == 'started'
+        if @state == 'started' # i.e. it should be currently running
           @log "AMQP Service Channel closed, restarting service"
           #then restart
-          @get_service_channel()
+          @restart()
         else
           @log "Service Channel stopped"
-          #dont restart
       )
 
       @create_response_queue(service_channel)
@@ -98,14 +122,12 @@ class ServiceConnectionManager
         # 3. will cause the service channel to die which will not ack the message
         #
         bb.try( => @service_handler(msg))
-        .then( (ret) ->
+        .then( ->
           service_channel.ack(msg)
-          ret
         )
         .catch( (e) ->
           service_channel.ack(msg)
-          console.error e
-          throw e
+          console.error e.stack
         )
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
@@ -115,20 +137,43 @@ class ServiceConnectionManager
     else
       bb.try( -> )
 
+  restart: ->
+    throw new Error("#restart rejected state #{@state}") if @state != 'started'
+    @state = 'restarting'
+    @start()
+
   start: ->
-    @state = 'started'
-    # If queue names are nil then they are not created
+    # can only start from stopped or restarting
+    throw new Error("#start rejected state #{@state}") if !(@state == 'stopped' || @state == 'restarting')
+    @state = 'starting'
     try
       @get_service_channel()
+      .then( =>
+        @state = 'started'
+      )
     catch error
-      bb.try( -> throw error) #turn actual error into promise error
+      bb.try( -> throw error) # turn actual error into promise error
 
   stop: ->
-    return bb.try(->) if @state == 'stopped'
-    @state = 'stopped'
+    throw new Error("#stop rejected state #{@state}") if @state != 'started'
     @get_connection()
     .then( (connection) =>
+      @state = 'stopping'
+      connection.close() # when finished this will stop
+    )
+    .then( =>
+      @state = 'stopped'
+    )
+
+  kill: ->
+   throw new Error("#kill rejected state #{@state}") if !(@state == 'stopped' || @state == 'started')
+    @get_connection()
+    .then( (connection) =>
+      @state = 'killing'
       connection.close()
+    )
+    .then( =>
+      @state = 'dead'
     )
 
   sendMessage: (queue, payload, options) ->
