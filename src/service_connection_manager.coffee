@@ -28,6 +28,7 @@ class ServiceConnectionManager
     #      dead
 
     @state = 'stopped'
+    @in_flight_messages = {}
 
   get_connection: ->
     # can only get a connection if starting or started
@@ -50,7 +51,8 @@ class ServiceConnectionManager
     )
 
   get_service_channel: ->
-    throw new Error("#get_service_channel rejected state #{@state}") if !(@state == 'started' || @state == 'starting')
+    #reject if not started, starting, or stopping to reply to messages
+    throw new Error("#get_service_channel rejected state #{@state}") if !(@state == 'started' || @state == 'starting' || @state == 'stopping')
 
     return @_service_channel if @_service_channel
 
@@ -121,7 +123,10 @@ class ServiceConnectionManager
         # 2. will log the error, ack the message, then propagate the error (which may kill the service)
         # 3. will cause the service channel to die which will not ack the message
         #
-        bb.try( => @service_handler(msg))
+
+
+        #console.log 'add message', _.keys(@in_flight_messages).length
+        @in_flight_messages[msg.properties.messageId] = bb.try( => @service_handler(msg))
         .then( ->
           service_channel.ack(msg)
         )
@@ -129,10 +134,17 @@ class ServiceConnectionManager
           service_channel.ack(msg)
           console.error e.stack
         )
+        .finally( =>
+          delete @in_flight_messages[msg.properties.messageId]
+          #console.log 'remove message', _.keys(@in_flight_messages).length
+        )
 
       service_channel.assertQueue(@service_queue_name, {durable: false})
       .then( =>
         service_channel.consume(@service_queue_name, fn)
+      )
+      .then( (ret) =>
+        @_service_queue_consumer_tag = ret.consumerTag
       )
     else
       bb.try( -> )
@@ -156,17 +168,28 @@ class ServiceConnectionManager
 
   stop: ->
     throw new Error("#stop rejected state #{@state}") if @state != 'started'
-    @get_connection()
-    .then( (connection) =>
+    bb.all([@get_service_channel(), @get_connection()])
+    .spread( (channel, connection) =>
       @state = 'stopping'
-      connection.close() # when finished this will stop
+      #stop receiving calls
+      if @_service_queue_consumer_tag
+        stop = channel.cancel(@_service_queue_consumer_tag)
+      else
+        stop = bb.try(->)
+
+      stop.then( =>
+        bb.all(_.values(@in_flight_messages))
+      )
+      .then( ->
+        connection.close()
+      )
     )
     .then( =>
       @state = 'stopped'
     )
 
   kill: ->
-   throw new Error("#kill rejected state #{@state}") if !(@state == 'stopped' || @state == 'started')
+    throw new Error("#kill rejected state #{@state}") if !(@state == 'stopped' || @state == 'started')
     @get_connection()
     .then( (connection) =>
       @state = 'killing'
