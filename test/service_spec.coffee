@@ -443,10 +443,13 @@ describe 'Service', ->
       bb.all([dead_service.start(), service.start()])
       .then( ->
         service.sendMessage('hellowworldservice', {})
-        bb.delay(100).then( -> dead_service.stop())
+      )
+      .spread( (resp, content) ->
+        expect(content.status_code).to.equal 500
+        dead_service.stop()
       )
       .then( ->
-        good_service.start().delay(10) # should get the message that was lost after a bit
+        good_service.start().delay(50) # should get the message that was lost after a bit
       )
       .then( ->
         expect(recieved_first_time).to.equal true
@@ -456,27 +459,25 @@ describe 'Service', ->
         -> bb.all([service.stop(), good_service.stop()])
       )
 
-    it 'should not lose the message if a worker dies', ->
+    it 'should not lose the message (ack) if a worker dies', ->
       recieved_first_time = false
       recieved_second_time = false
-      dead_service = new Service('hellowworldservice',
+      dead_service = new Service('hellowworldservice123',
         service_fn: (payload) ->
           recieved_first_time = true
-          console.log "WHO"
           return bb.delay(200) #will wait for a bit while I kill it
       )
 
       service = new Service('testService', {timeout: 5000})
-      good_service = new Service('hellowworldservice',
+      good_service = new Service('hellowworldservice123',
         service_fn: (payload) ->
           recieved_second_time = true
-          console.log "THIS"
           {}
       )
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessage('hellowworldservice123', {})
         bb.delay(100).then( -> console.log "KILL"; dead_service.stop())
       )
       .then( ->

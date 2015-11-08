@@ -134,7 +134,13 @@ class Service
       payload = msgpack.unpack(msg.content)
     else
       payload = {}
-    bb.try( => @options.service_fn(payload))
+
+    bb.try( =>
+      @options.service_fn(payload)
+    ).catch( (err) =>
+      console.log "UTILITY_ERROR", err.stack
+      throw err #Propagate up the stack
+    )
 
   receiveHTTPRequest: (msg) ->
     if msg.content
@@ -150,7 +156,7 @@ class Service
     if not (queue_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
 
-    #process the message
+    # process the message
     # TODO log incoming call
     bb.try( =>
       @options.service_fn(payload)
@@ -200,6 +206,7 @@ class Service
         }
       )
 
+      throw err # reraise the error to the service channel layer
     )
 
   sendRawMessage: (queue, payload, options) ->

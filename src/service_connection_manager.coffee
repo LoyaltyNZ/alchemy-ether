@@ -116,23 +116,26 @@ class ServiceConnectionManager
         #
         # Conditions
         # 1. The Service Function Succeeds
-        # 2. The Service Function Errors
-        # 3. The Service is killed or dies while processing the message
+        # 2. The Service Function Has an Unknown Error
+        # 3. The Service has a NAckError Error
+        # 4. The Service is killed or dies while processing the message
 
         # 1. will ack the message
         # 2. will log the error, ack the message, then propagate the error (which may kill the service)
-        # 3. will cause the service channel to die which will not ack the message
+        # 3. will nack the message so that another service can handle it
+        # 4. will cause the service channel to die which will not ack the message
         #
 
 
-        #console.log 'add message', _.keys(@in_flight_messages).length
+        # console.log 'add message', _.keys(@in_flight_messages).length
         @in_flight_messages[msg.properties.messageId] = bb.try( => @service_handler(msg))
         .then( ->
           service_channel.ack(msg)
         )
         .catch( (e) ->
+          # If the service has not handled this error, then remove it
           service_channel.ack(msg)
-          console.error e.stack
+          console.error "Service Channel Error", e.stack
         )
         .finally( =>
           delete @in_flight_messages[msg.properties.messageId]
@@ -150,13 +153,13 @@ class ServiceConnectionManager
       bb.try( -> )
 
   restart: ->
-    throw new Error("#restart rejected state #{@state}") if @state != 'started'
+    throw new Error("#restart rejected state #{@state}") if !@in_state(['started'])
     @state = 'restarting'
     @start()
 
   start: ->
     # can only start from stopped or restarting
-    throw new Error("#start rejected state #{@state}") if !(@state == 'stopped' || @state == 'restarting')
+    throw new Error("#start rejected state #{@state}") if  !@in_state(['stopped', 'restarting'])
     @state = 'starting'
     try
       @get_service_channel()
@@ -167,7 +170,7 @@ class ServiceConnectionManager
       bb.try( -> throw error) # turn actual error into promise error
 
   stop: ->
-    throw new Error("#stop rejected state #{@state}") if @state != 'started'
+    throw new Error("#stop rejected state #{@state}") if !@in_state(['started'])
     bb.all([@get_service_channel(), @get_connection()])
     .spread( (channel, connection) =>
       @state = 'stopping'
@@ -189,7 +192,7 @@ class ServiceConnectionManager
     )
 
   kill: ->
-    throw new Error("#kill rejected state #{@state}") if !(@state == 'stopped' || @state == 'started')
+    throw new Error("#kill rejected state #{@state}") if !@in_state(['stopped','started'])
     @get_connection()
     .then( (connection) =>
       @state = 'killing'
@@ -198,6 +201,13 @@ class ServiceConnectionManager
     .then( =>
       @state = 'dead'
     )
+
+  in_state: (states) ->
+    for s in states
+      if @state == s
+        return true
+
+    return false
 
   sendMessage: (queue, payload, options) ->
     @get_service_channel()
