@@ -402,6 +402,41 @@ describe 'Service', ->
 
   describe "unhappy path", ->
 
+    it 'should nack the message if NAckError is thrown', ->
+      recieved_first_time = false
+      recieved_second_time = false
+      dead_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_first_time = true
+          throw new Service.NAckError()
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      good_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          {}
+      )
+
+      bb.all([dead_service.start(), service.start()])
+      .then( ->
+        service.sendMessage('hellowworldservice', {})
+      )
+      .spread( (resp, content) ->
+        expect(content.status_code).to.equal 500
+        dead_service.stop()
+      )
+      .then( ->
+        good_service.start().delay(50) # should get the message that was lost after a bit
+      )
+      .then( ->
+        expect(recieved_first_time).to.equal true
+        expect(recieved_second_time).to.equal true
+      )
+      .finally(
+        -> bb.all([service.stop(), good_service.stop()])
+      )
+
     it 'should not stop the service if the service_fn throws an error', ->
       recieved_messages = 0
       bad_service = new Service('bad_service',

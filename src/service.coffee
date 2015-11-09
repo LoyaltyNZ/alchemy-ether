@@ -218,4 +218,6 @@ class Service
         throw error
       )
 
+Service.NAckError = ServiceConnectionManger.NAckError
+
 module.exports = Service

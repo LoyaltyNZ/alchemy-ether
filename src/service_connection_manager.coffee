@@ -2,6 +2,8 @@ bb = require "bluebird"
 amqp = require("amqplib")
 _ = require('lodash')
 
+Errors = require './errors'
+
 class ServiceConnectionManager
 
   log : (message) ->
@@ -132,10 +134,14 @@ class ServiceConnectionManager
         .then( ->
           service_channel.ack(msg)
         )
-        .catch( (e) ->
+        .catch( Errors.NAckError, (err) ->
+          service_channel.nack(msg)
+          console.error "NACKed MESSAGE", err.stack
+        )
+        .catch( (err) ->
           # If the service has not handled this error, then remove it
           service_channel.ack(msg)
-          console.error "Service Channel Error", e.stack
+          console.error "Service Channel Error", err.stack
         )
         .finally( =>
           delete @in_flight_messages[msg.properties.messageId]
@@ -217,5 +223,7 @@ class ServiceConnectionManager
       #@log "#{published}"
       published
     )
+
+ServiceConnectionManager.NAckError = Errors.NAckError
 
 module.exports = ServiceConnectionManager
