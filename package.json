@@ -35,5 +35,6 @@
     "scripts": {
         "test": "mocha"
     },
+    "license": "LGPL 3.0",
     "private": true
 }

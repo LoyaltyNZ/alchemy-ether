@@ -19,7 +19,7 @@ class ServiceConnectionManager
     #        A             |      |
     #      start()        stop()  |
     #        |             V      |
-    #     stopped   ->  stopping  |
+    #     stopped   <-  stopping  |
     #        |                    |
     #        |--------------------|
     #      kill()
