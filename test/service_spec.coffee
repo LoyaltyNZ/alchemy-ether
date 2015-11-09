@@ -52,12 +52,10 @@ describe 'Service', ->
         bb.delay(10).then( -> long_service.stop())
         service.sendMessage('hellowworldservice', {})
       )
+      .delay(100)
       .spread( (resp, content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
-      )
-      .delay(100)
-      .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
       .finally(-> service.stop())
@@ -87,12 +85,10 @@ describe 'Service', ->
         service.sendMessage('stoppedhellowworldservice', {})
 
       )
+      .delay(100)
       .spread( (resp, content) ->
         expect(recieved_messages).to.equal 1
         expect(content.body).to.equal 'long'
-      )
-      .delay(100)
-      .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
       .finally( ->
