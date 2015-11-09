@@ -56,7 +56,7 @@ describe 'Service', ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
       )
-      .delay(10)
+      .delay(100)
       .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
@@ -91,7 +91,7 @@ describe 'Service', ->
         expect(recieved_messages).to.equal 1
         expect(content.body).to.equal 'long'
       )
-      .delay(10)
+      .delay(100)
       .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
