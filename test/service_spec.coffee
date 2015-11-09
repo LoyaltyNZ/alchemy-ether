@@ -43,7 +43,6 @@ describe 'Service', ->
       service = new Service('testService')
       long_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          console.log "PAYLOAD", payload
           recieved_message = true
           bb.delay(50).then( -> {body: 'long'})
       )
@@ -52,10 +51,8 @@ describe 'Service', ->
       .then( ->
         bb.delay(10).then( -> long_service.stop())
         service.sendMessage('hellowworldservice', {})
-
       )
       .spread( (resp, content) ->
-        console.log content
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
         expect(long_service.connection_manager.state).to.equal 'stopped'
@@ -63,21 +60,63 @@ describe 'Service', ->
       .finally(-> service.stop())
 
     it 'should stop receiving messages while it is stopping', ->
+      recieved_messages = 0
+      service = new Service('testService')
+      long_service = new Service('stoppedhellowworldservice',
+        service_fn: (payload) ->
+          recieved_messages++
+          bb.delay(50).then( -> {body: 'long'})
+      )
+
+      short_service = new Service('stoppedhellowworldservice')
+
+      bb.all([long_service.start(), service.start()])
+      .then( ->
+
+        bb.delay(10)
+        .then( ->
+          long_service.stop()
+        )
+        .delay(10)
+        .then( ->
+          service.sendMessage('stoppedhellowworldservice', {})
+        )
+        service.sendMessage('stoppedhellowworldservice', {})
+
+      )
+      .spread( (resp, content) ->
+        expect(recieved_messages).to.equal 1
+        expect(content.body).to.equal 'long'
+        expect(long_service.connection_manager.state).to.equal 'stopped'
+      )
+      .finally( ->
+        short_service.start() #drain the queue
+        .then( ->
+          bb.all([short_service.stop(), service.stop()])
+        )
+      )
 
   describe '#kill', ->
-    it 'should not process the messages then stop', ->
+    it 'should not process the messages, and not ack them then stop', ->
       recieved_message = false
+      retrieved_message = false
       service = new Service('testService', {timeout: 200})
-      long_service = new Service('hellowworldservice',
+      long_service = new Service('deadhellowworldservice',
         service_fn: (payload) ->
           recieved_message = true
           bb.delay(100).then( -> {message: 'long'})
       )
 
+      short_service = new Service('deadhellowworldservice',
+        service_fn: (payload) ->
+          console.log "HEREE"
+          retrieved_message = true
+      )
+
       bb.all([long_service.start(), service.start()])
       .then( ->
         bb.delay(50).then( -> long_service.kill())
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessage('deadhellowworldservice', {})
       )
       .then( ->
         throw "SHOULD NOT GET HERE"
@@ -86,10 +125,31 @@ describe 'Service', ->
         expect(recieved_message).to.equal true
         expect(long_service.connection_manager.state).to.equal 'dead'
       )
-      .finally(-> service.stop())
-    it 'should not ack the messages being currently processed', ->
+      .then( ->
+        short_service.start()
+      )
+      .delay(10)
+      .then( ->
+        expect(retrieved_message).to.equal true
+      )
+      .finally(->
+        bb.all([short_service.stop(), service.stop()])
+      )
 
     it 'should die and not be startable again', ->
+      service = new Service('testService', {timeout: 200})
+      service.start()
+      .then( ->
+        service.kill()
+      )
+      .then( ->
+        service.start().then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+      )
+      .catch( (e) ->
+        expect(service.connection_manager.state).to.equal 'dead'
+      )
 
   describe 'response queue', ->
     response_queue_exists = (service) ->
@@ -471,7 +531,6 @@ describe 'Service', ->
       good_service = new Service('hellowworldservice',
         service_fn: (payload) ->
           recieved_second_time = true
-          console.log "THAT"
           {}
       )
 

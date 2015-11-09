@@ -34,7 +34,7 @@ class ServiceConnectionManager
 
   get_connection: ->
     # can only get a connection if starting or started
-    throw new Error("#get_connection rejected state #{@state}") if !(@state == 'started' || @state == 'starting')
+    throw new Error("#{@uuid}: #get_connection rejected state #{@state}") if !(@state == 'started' || @state == 'starting')
 
     return @_connection if @_connection
     @log "creating connection"
@@ -54,7 +54,7 @@ class ServiceConnectionManager
 
   get_service_channel: ->
     #reject if not started, starting, or stopping to reply to messages
-    throw new Error("#get_service_channel rejected state #{@state}") if !(@state == 'started' || @state == 'starting' || @state == 'stopping')
+    throw new Error("#{@uuid}: #get_service_channel rejected state #{@state}") if !(@state == 'started' || @state == 'starting' || @state == 'stopping')
 
     return @_service_channel if @_service_channel
 
@@ -159,13 +159,14 @@ class ServiceConnectionManager
       bb.try( -> )
 
   restart: ->
-    throw new Error("#restart rejected state #{@state}") if !@in_state(['started'])
+    throw new Error("#{@uuid}: #restart rejected state #{@state}") if !@in_state(['started'])
     @state = 'restarting'
     @start()
 
   start: ->
+    return true if @state == 'started'
     # can only start from stopped or restarting
-    throw new Error("#start rejected state #{@state}") if  !@in_state(['stopped', 'restarting'])
+    throw new Error("#{@uuid}: #start rejected state #{@state}") if  !@in_state(['stopped', 'restarting'])
     @state = 'starting'
     try
       @get_service_channel()
@@ -176,7 +177,8 @@ class ServiceConnectionManager
       bb.try( -> throw error) # turn actual error into promise error
 
   stop: ->
-    throw new Error("#stop rejected state #{@state}") if !@in_state(['started'])
+    return true if @state == 'stopped'
+    throw new Error("#{@uuid}: #stop rejected state #{@state}") if !@in_state(['started'])
     bb.all([@get_service_channel(), @get_connection()])
     .spread( (channel, connection) =>
       @state = 'stopping'
@@ -198,7 +200,7 @@ class ServiceConnectionManager
     )
 
   kill: ->
-    throw new Error("#kill rejected state #{@state}") if !@in_state(['stopped','started'])
+    throw new Error("#{@uuid}: #kill rejected state #{@state}") if !@in_state(['stopped','started'])
     @get_connection()
     .then( (connection) =>
       @state = 'killing'
