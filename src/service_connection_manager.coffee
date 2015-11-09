@@ -123,8 +123,8 @@ class ServiceConnectionManager
         # 4. The Service is killed or dies while processing the message
 
         # 1. will ack the message
-        # 2. will log the error, ack the message, then propagate the error (which may kill the service)
-        # 3. will nack the message so that another service can handle it
+        # 2. will log the error then ack the message
+        # 3. will log the error then nack the message (so that another service can handle it later)
         # 4. will cause the service channel to die which will not ack the message
         #
 
@@ -135,13 +135,13 @@ class ServiceConnectionManager
           service_channel.ack(msg)
         )
         .catch( Errors.NAckError, (err) ->
-          service_channel.nack(msg)
           console.error "NACKed MESSAGE", err.stack
+          service_channel.nack(msg)
         )
         .catch( (err) ->
           # If the service has not handled this error, then remove it
-          service_channel.ack(msg)
           console.error "Service Channel Error", err.stack
+          service_channel.ack(msg)
         )
         .finally( =>
           delete @in_flight_messages[msg.properties.messageId]

@@ -55,6 +55,9 @@ describe 'Service', ->
       .spread( (resp, content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
+      )
+      .delay(10)
+      .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
       .finally(-> service.stop())
@@ -87,6 +90,9 @@ describe 'Service', ->
       .spread( (resp, content) ->
         expect(recieved_messages).to.equal 1
         expect(content.body).to.equal 'long'
+      )
+      .delay(10)
+      .then( ->
         expect(long_service.connection_manager.state).to.equal 'stopped'
       )
       .finally( ->
