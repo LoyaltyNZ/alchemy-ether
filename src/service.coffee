@@ -138,7 +138,7 @@ class Service
     bb.try( =>
       @options.service_fn(payload)
     ).catch( (err) =>
-      console.log "UTILITY_ERROR", err.stack
+      console.error "#{@uuid} UTILITY_ERROR", err.stack
       throw err #Propagate up the stack
     )
 
@@ -190,7 +190,7 @@ class Service
       )
 
     ).catch( (err) =>
-      console.log "HTTP_ERROR", err.stack
+      console.error "#{@uuid} HTTP_ERROR", err.stack
       resp = Bam.error(err)
       resp.headers = { 'x-interaction-id': payload.headers['x-interaction-id']}
 
@@ -214,7 +214,7 @@ class Service
       @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
     catch error
       bb.try( ->
-        console.error "#sendRawMessage ERROR"
+        console.error "#{@uuid} #sendRawMessage ERROR"
         throw error
       )
 

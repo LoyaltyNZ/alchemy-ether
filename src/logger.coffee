@@ -18,7 +18,6 @@ class Logger
     @log_data(data)
 
   log_data: (data) ->
-
     options =
       type: 'logging_event'
 
