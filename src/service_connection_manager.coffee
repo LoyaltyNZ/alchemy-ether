@@ -29,7 +29,7 @@ class ServiceConnectionManager
     #        V
     #      dead
 
-    @change_state('stopped')
+    @state = 'stopped'
     @in_flight_messages = {}
 
   get_connection: ->
@@ -81,7 +81,7 @@ class ServiceConnectionManager
       )
 
       service_channel.on('close', =>
-        @log "Service Channel Closed"
+        #@log "Service Channel Closed"
         @_service_channel = null
         if @state == 'started' # i.e. it should be currently running
           @log "AMQP Service Channel closed, restarting service"
@@ -99,7 +99,7 @@ class ServiceConnectionManager
 
   create_response_queue: (service_channel) ->
     if @response_queue_name
-      @log "Creating response queue"
+      #@log "Creating response queue"
       fn = (msg) =>
         #@log "recieved response message ID `#{JSON.stringify(msg.properties)}`"
 
@@ -117,7 +117,7 @@ class ServiceConnectionManager
 
   create_service_queue: (service_channel) ->
     if @service_queue_name
-      @log "Creating service queue"
+      #@log "Creating service queue"
       fn = (msg) =>
         # @log "recieved service message ID `#{msg.properties.messageId}`"
         #
@@ -204,7 +204,6 @@ class ServiceConnectionManager
       @change_state('stopped')
     )
 
-
   in_state: (states) ->
     for s in states
       if @state == s
@@ -213,7 +212,7 @@ class ServiceConnectionManager
     return false
 
   change_state: (state) ->
-    @log "State changing from #{@state} to #{state}"
+    @log "#{@state} -> #{state}"
     @state = state
 
   kill: ->
