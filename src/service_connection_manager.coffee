@@ -92,13 +92,10 @@ class ServiceConnectionManager
       )
 
       @create_response_queue(service_channel)
-      .then( => @assert_logging_exchange(service_channel))
+      .then( => service_channel.assertExchange("resources.exchange", 'topic'))
       .then( => @create_service_queue(service_channel))
       .then( -> service_channel) #return the service channel
     )
-
-  assert_logging_exchange: (service_channel) ->
-    service_channel.assertExchange("logging.exchange", 'fanout')
 
   create_response_queue: (service_channel) ->
     if @response_queue_name
@@ -156,10 +153,7 @@ class ServiceConnectionManager
           #console.log 'remove message', _.keys(@in_flight_messages).length
         )
 
-      service_channel.assertQueue(@service_queue_name, {durable: false})
-      .then( =>
-        service_channel.assertExchange("resources.exchange", 'topic')
-      )
+      service_channel.assertQueue(@service_queue_name, {durable: true})
       .then( =>
         service_channel.consume(@service_queue_name, fn)
       )
@@ -210,6 +204,7 @@ class ServiceConnectionManager
       @change_state('stopped')
     )
 
+
   in_state: (states) ->
     for s in states
       if @state == s
@@ -254,31 +249,6 @@ class ServiceConnectionManager
     .then( (service_channel) =>
       options.mandatory = true
       service_channel.publish("resources.exchange", resource, payload, options)
-    )
-
-
-  addServiceToLoggingExchange: () ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      service_channel.bindQueue(@service_queue_name, "logging.exchange", '')
-    )
-    .then( =>
-      @log "Bound #{@service_queue_name} to logging.exchange"
-    )
-
-  removeServiceToLoggingExchange: () ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      service_channel.unbindQueue(@service_queue_name, "logging.exchange", '')
-    )
-    .then( =>
-      @log "Unbound #{@service_queue_name} to logging.exchange"
-    )
-
-  logMessage: (payload, options) ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      service_channel.publish("logging.exchange", '', payload, options)
     )
 
   logMessageToService: (service, payload, options) ->

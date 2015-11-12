@@ -251,45 +251,6 @@ describe 'Service', ->
         expect(exists).to.equal false
       )
 
-  describe 'logging service', ->
-    it 'should not recieve logging events if not listening to logging', ->
-      recieved = false
-      service = new Service('notTestLoggingService', service_fn: (logging_message) ->
-        recieved = true
-      )
-
-      bb.all([service.start()])
-      .then( ->
-        service.logMessage({hello: "nobody"})
-      )
-      .delay(10)
-      .then( ->
-        expect(recieved).to.be.false
-      )
-      .finally( -> bb.all([service.stop()]))
-
-    it 'should recieve logging messages ' , ->
-      recieved = false
-      service = new Service('testLoggingService', service_fn: (logging_message) ->
-        recieved = true
-      )
-      bb.all([service.start()])
-      .then( ->
-        service.listenToLogs()
-      )
-      .then( ->
-        service.logMessage({hello: "world"})
-      )
-      .delay(10)
-      .then( ->
-        expect(recieved).to.be.true
-      )
-      .finally( ->
-        service.unlistenToLogs()
-        .then( ->
-          service.stop()
-        )
-      )
 
   describe '#sendRawMessageToService', ->
     it 'should work', ->

@@ -261,17 +261,6 @@ class Service
   sendRawMessageToResource: (resource, payload, options) ->
     @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
 
-
-  listenToLogs: () ->
-    @connection_manager.addServiceToLoggingExchange()
-
-  unlistenToLogs: () ->
-    @connection_manager.removeServiceToLoggingExchange()
-
-  logMessage: (log_message, options = {}) ->
-    options = _.defaults(options, {type: 'logging_event'})
-    @connection_manager.logMessage(msgpack.pack(log_message), options)
-
   logMessageToService: (service, log_message, options) ->
     options = _.defaults(options, {type: 'logging_event'})
     @connection_manager.logMessageToService(service, msgpack.pack(log_message), options)
