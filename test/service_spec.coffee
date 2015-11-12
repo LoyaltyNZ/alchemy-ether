@@ -108,34 +108,30 @@ describe 'Service', ->
         service_fn: (payload) ->
           console.log "HERE"
           recieved_message = true
-          bb.delay(200).then( -> {message: 'long'})
+          bb.delay(200).then( -> {body: "first_chance"})
       )
 
       short_service = new Service('deadhellowworldservice',
         service_fn: (payload) ->
           console.log "HEREEee"
           retrieved_message = true
+          {body: "second_chance"}
       )
 
       bb.all([long_service.start(), service.start()])
       .then( ->
-        bb.delay(10).then( -> long_service.kill())
+        bb.delay(10)
+        .then( -> long_service.kill())
+        .delay(10)
+        .then( -> short_service.start())
+
         service.sendMessageToService('deadhellowworldservice', {})
       )
-      .then( ->
-        throw "SHOULD NOT GET HERE"
-      )
-      .catch( (e) ->
-        console.log e
+      .spread( (msg, body) ->
+        expect(body.body).to.equal "second_chance"
+        expect(retrieved_message).to.equal true
         expect(recieved_message).to.equal true
         expect(long_service.connection_manager.state).to.equal 'dead'
-      )
-      .then( ->
-        short_service.start()
-      )
-      .delay(1000)
-      .then( ->
-        expect(retrieved_message).to.equal true
       )
       .finally(->
         bb.all([short_service.stop(), service.stop()])
