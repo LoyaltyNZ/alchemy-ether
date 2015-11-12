@@ -37,9 +37,125 @@ describe 'Service', ->
       expect(service.start()).to.be.rejected
 
 
-  describe 'exchange posting', ->
-    it 'sending a message to an exchange should work', ->
-      service = new Service("testService")
+  describe '#stop', ->
+    it 'should process the messages then stop', ->
+      recieved_message = false
+      service = new Service('testService')
+      long_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_message = true
+          bb.delay(50).then( -> {body: 'long'})
+      )
+
+      bb.all([long_service.start(), service.start()])
+      .then( ->
+        bb.delay(10).then( -> long_service.stop())
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .delay(100)
+      .spread( (resp, content) ->
+        expect(recieved_message).to.equal true
+        expect(content.body).to.equal 'long'
+        expect(long_service.connection_manager.state).to.equal 'stopped'
+      )
+      .finally(-> service.stop())
+
+    it 'should stop receiving messages while it is stopping', ->
+      recieved_messages = 0
+      service = new Service('testService')
+      long_service = new Service('stoppedhellowworldservice',
+        service_fn: (payload) ->
+          recieved_messages++
+          bb.delay(50).then( -> {body: 'long'})
+      )
+
+      short_service = new Service('stoppedhellowworldservice')
+
+      bb.all([long_service.start(), service.start()])
+      .then( ->
+
+        bb.delay(10)
+        .then( ->
+          long_service.stop()
+        )
+        .delay(10)
+        .then( ->
+          service.sendMessageToService('stoppedhellowworldservice', {})
+        )
+        service.sendMessageToService('stoppedhellowworldservice', {})
+
+      )
+      .delay(100)
+      .spread( (resp, content) ->
+        expect(recieved_messages).to.equal 1
+        expect(content.body).to.equal 'long'
+        expect(long_service.connection_manager.state).to.equal 'stopped'
+      )
+      .finally( ->
+        short_service.start() #drain the queue
+        .then( ->
+          bb.all([short_service.stop(), service.stop()])
+        )
+      )
+
+  describe '#kill', ->
+    it 'should not process the messages, and not ack them then stop', ->
+      recieved_message = false
+      retrieved_message = false
+      service = new Service('testService', {timeout: 200})
+
+      long_service = new Service('deadhellowworldservice',
+        service_fn: (payload) ->
+          console.log "HERE"
+          recieved_message = true
+          bb.delay(200).then( -> {message: 'long'})
+      )
+
+      short_service = new Service('deadhellowworldservice',
+        service_fn: (payload) ->
+          console.log "HEREEee"
+          retrieved_message = true
+      )
+
+      bb.all([long_service.start(), service.start()])
+      .then( ->
+        bb.delay(10).then( -> long_service.kill())
+        service.sendMessageToService('deadhellowworldservice', {})
+      )
+      .then( ->
+        throw "SHOULD NOT GET HERE"
+      )
+      .catch( (e) ->
+        console.log e
+        expect(recieved_message).to.equal true
+        expect(long_service.connection_manager.state).to.equal 'dead'
+      )
+      .then( ->
+        short_service.start()
+      )
+      .delay(1000)
+      .then( ->
+        expect(retrieved_message).to.equal true
+      )
+      .finally(->
+        bb.all([short_service.stop(), service.stop()])
+      )
+
+    it 'should die and not be startable again', ->
+      service = new Service('testService', {timeout: 200})
+      service.start()
+      .then( ->
+        service.kill()
+      )
+      .then( ->
+        service.start().then( ->
+          throw "SHOULD NOT GET HERE"
+        )
+      )
+      .catch( (e) ->
+        expect(service.connection_manager.state).to.equal 'dead'
+      )
+
 
   describe 'response queue', ->
     response_queue_exists = (service) ->
@@ -63,7 +179,8 @@ describe 'Service', ->
         exists
       )
       .finally( ->
-        checker.stop()
+        if checker.connection_manager.state == 'started'
+          checker.stop()
       )
 
 
@@ -122,7 +239,7 @@ describe 'Service', ->
 
     it 'should not exist after stopping for a longer period of time', ->
       service = new Service("testService")
-      exists = false
+      exists = true
       service.start()
       .then(->
         service.stop()
@@ -427,11 +544,137 @@ describe 'Service', ->
         -> bb.all([service.stop(), hello_service.stop()])
       )
 
+
+
   describe "unhappy path", ->
+
+    it 'should nack the message if NAckError is thrown', ->
+      recieved_first_time = false
+      recieved_second_time = false
+      dead_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_first_time = true
+          throw new Service.NAckError()
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      good_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          {}
+      )
+
+      bb.all([dead_service.start(), service.start()])
+      .then( ->
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .spread( (resp, content) ->
+        expect(content.status_code).to.equal 500
+        dead_service.stop()
+      )
+      .then( ->
+        good_service.start().delay(50) # should get the message that was lost after a bit
+      )
+      .then( ->
+        expect(recieved_first_time).to.equal true
+        expect(recieved_second_time).to.equal true
+      )
+      .finally(
+        -> bb.all([service.stop(), good_service.stop()])
+      )
+
+    it 'should not stop the service if the service_fn throws an error', ->
+      recieved_messages = 0
+      bad_service = new Service('bad_service',
+        service_fn: (payload) ->
+          recieved_messages++
+          throw new Error()
+      )
+      service = new Service('testService')
+
+      bb.all([bad_service.start(), service.start()])
+      .then( ->
+        service.sendMessageToService('bad_service', {}) #kill the service
+      )
+      .then( ->
+        expect(recieved_messages).to.equal 1
+        service.sendMessageToService('bad_service', {})
+      )
+      .then( ->
+        expect(recieved_messages).to.equal 2
+      )
+
+    it 'should still ack if the service throws an error', ->
+      recieved_first_time = false
+      recieved_second_time = false
+      dead_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_first_time = true
+          throw new Error()
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      good_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          {}
+      )
+
+      bb.all([dead_service.start(), service.start()])
+      .then( ->
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .spread( (resp, content) ->
+        expect(content.status_code).to.equal 500
+        dead_service.stop()
+      )
+      .then( ->
+        good_service.start().delay(50) # should get the message that was lost after a bit
+      )
+      .then( ->
+        expect(recieved_first_time).to.equal true
+        expect(recieved_second_time).to.equal false
+      )
+      .finally(
+        -> bb.all([service.stop(), good_service.stop()])
+      )
+
+    it 'should not lose the message (ack) if a worker dies', ->
+      recieved_first_time = false
+      recieved_second_time = false
+      dead_service = new Service('hellowworldservice123',
+        service_fn: (payload) ->
+          recieved_first_time = true
+          return bb.delay(200) #will wait for a bit while I kill it
+      )
+
+      service = new Service('testService', {timeout: 5000})
+      good_service = new Service('hellowworldservice123',
+        service_fn: (payload) ->
+          recieved_second_time = true
+          {}
+      )
+
+      bb.all([dead_service.start(), service.start()])
+      .then( ->
+        service.sendMessageToService('hellowworldservice123', {})
+        bb.delay(100).then( -> console.log "KILL"; dead_service.stop())
+      )
+      .then( ->
+        good_service.start().delay(10) # should get the message that was lost after a bit
+      )
+      .then( ->
+        expect(recieved_first_time).to.equal true
+        expect(recieved_second_time).to.equal true
+      ).delay(1000)
+      .finally(
+        -> bb.all([service.stop(), good_service.stop()])
+      )
+
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          bb.delay(500).then( -> {body: {hello: "world"}})
+          bb.delay(500).then( -> {body: {hello: "world2"}})
       )
 
       service = new Service('testService', {timeout: 5000})
@@ -449,10 +692,7 @@ describe 'Service', ->
         service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        expect(content.body.hello).to.equal('world')
-      )
-      .catch( (err) ->
-        console.log err.stack
+        expect(content.body.hello).to.equal('world2')
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
@@ -516,5 +756,6 @@ describe 'Service', ->
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
+
 
 

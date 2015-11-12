@@ -242,7 +242,7 @@ describe "Resource", ->
           .delay(10)
         )
         .spread((resp, body) ->
-          log_message
+          expect(log_message.message).to.equal "log message"
         )
         .finally(->
           bb.all([logging_service.stop(), service.stop(), resource_service.stop()])

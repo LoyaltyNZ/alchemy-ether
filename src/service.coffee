@@ -5,6 +5,8 @@ ServiceConnectionManger = require('./service_connection_manager')
 _ = require('lodash')
 Errors = require ('./errors')
 
+Bam = require './bam'
+
 class Service
   @TimeoutError = bb.TimeoutError
   @MessageNotDeliveredError = Errors.MessageNotDeliveredError
@@ -50,6 +52,9 @@ class Service
 
   stop: ->
     @connection_manager.stop()
+
+  kill: ->
+    @connection_manager.kill()
 
   # Send a message internally
   sendMessageToService: (service, payload) ->
@@ -105,7 +110,7 @@ class Service
 
     returned_promise = returned_promise.timeout(@options.timeout)
 
-    returned_promise
+    returned_promise.timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
       return if returned_promise.isFulfilled() #Under stress the error can be thrown when already resolved
       console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
@@ -170,7 +175,13 @@ class Service
       payload = msgpack.unpack(msg.content)
     else
       payload = {}
-    bb.try( => @options.service_fn(payload))
+
+    bb.try( =>
+      @options.service_fn(payload)
+    ).catch( (err) =>
+      console.error "#{@uuid} UTILITY_ERROR", err.stack
+      throw err #Propagate up the stack
+    )
 
   receiveHTTPRequest: (msg) ->
     if msg.content
@@ -186,7 +197,7 @@ class Service
     if not (service_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
 
-    #process the message
+    # process the message
     # TODO log incoming call
     bb.try( =>
       @options.service_fn(payload)
@@ -218,13 +229,25 @@ class Service
           messageId: this_message_id
         }
       )
+    ).catch( (err) =>
+      console.error "#{@uuid} HTTP_ERROR", err.stack
+      resp = Bam.error(err)
+      resp.headers = { 'x-interaction-id': payload.headers['x-interaction-id']}
 
-    ).catch( (err) ->
-      console.log "SEND MESSAGE ERROR"
-      console.log err.stack
-      throw err
+      # If all else fails
+
+      @replyToServiceMessage(
+        service_to_reply_to,
+        resp,
+        {
+          type: 'http_response',
+          correlationId: message_replying_to,
+          messageId: this_message_id
+        }
+      )
+
+      throw err # reraise the error to the service channel layer
     )
-
 
   addResourceToService: (resource) ->
     @connection_manager.addResourceToService(resource)
@@ -252,5 +275,7 @@ class Service
   logMessageToService: (service, log_message, options) ->
     options = _.defaults(options, {type: 'logging_event'})
     @connection_manager.logMessageToService(service, msgpack.pack(log_message), options)
+
+Service.NAckError = ServiceConnectionManger.NAckError
 
 module.exports = Service

@@ -10,6 +10,7 @@ Logger = require("./logger")
 
 class ResourceService
 
+
   constructor: (@service_name, @resource_list = [], @options = {}) ->
     @resources = {}
     for r in @resource_list

@@ -6,6 +6,7 @@ class Resource
     @_base_topic = Util.pathToTopic(@path)
     @topic = "#{@_base_topic}.#"
 
+
   create: (context) ->
     throw Bam.method_not_allowed()
 
@@ -18,8 +19,8 @@ class Resource
   delete: (context) ->
     throw Bam.method_not_allowed()
 
-
   matches_topic: (try_topic) ->
     ret = _.startsWith(try_topic, @_base_topic)
     return ret
+
 module.exports = Resource
