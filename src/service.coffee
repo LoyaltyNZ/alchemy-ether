@@ -167,10 +167,11 @@ class Service
     else if type == 'http_request'
       return @receiveHTTPRequest(msg)
     else
-      console.warn "#{@uuid}: Processing unknown message type #{type}"
       @receiveUtilityEvent(msg)
 
   receiveUtilityEvent: (msg) ->
+    type = msg.properties.type
+
     if msg.content
       payload = msgpack.unpack(msg.content)
     else
@@ -179,7 +180,7 @@ class Service
     bb.try( =>
       @options.service_fn(payload)
     ).catch( (err) =>
-      console.error "#{@uuid} UTILITY_ERROR", err.stack
+      console.error "#{@uuid} UTILITY_ERROR from message type #{type}", err.stack
       throw err #Propagate up the stack
     )
 
