@@ -148,7 +148,7 @@ class ServiceConnectionManager
           #console.log 'remove message', _.keys(@in_flight_messages).length
         )
 
-      service_channel.assertQueue(@service_queue_name, {durable: false})
+      service_channel.assertQueue(@service_queue_name, {durable: true})
       .then( =>
         service_channel.consume(@service_queue_name, fn)
       )
