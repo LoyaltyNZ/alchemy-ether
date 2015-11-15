@@ -182,6 +182,7 @@ class ServiceConnectionManager
       bb.try( -> throw error) # turn actual error into promise error
 
   stop: ->
+
     return bb.try( -> true) if @state == 'stopped'
     throw new Error("#{@uuid}: #stop rejected state #{@state}") if !@in_state(['started'])
     bb.all([@get_service_channel(), @get_connection()])

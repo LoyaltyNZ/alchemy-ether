@@ -38,7 +38,29 @@ describe 'Service', ->
 
 
   describe '#stop', ->
-    it 'should process the messages then stop', ->
+    it 'should process the outgoing messages then stop', ->
+      recieved_message = false
+      service = new Service('testService')
+      long_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          recieved_message = true
+          bb.delay(50).then( -> {body: 'long'})
+      )
+
+      bb.all([long_service.start(), service.start()])
+      .then( ->
+        bb.delay(10).then( -> service.stop())
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .delay(100)
+      .spread( (resp, content) ->
+        expect(recieved_message).to.equal true
+        expect(content.body).to.equal 'long'
+        expect(service.connection_manager.state).to.equal 'stopped'
+      )
+      .finally(-> long_service.stop())
+
+    it 'should process the incoming messages then stop', ->
       recieved_message = false
       service = new Service('testService')
       long_service = new Service('hellowworldservice',
@@ -267,7 +289,7 @@ describe 'Service', ->
 
     describe 'returned transaction promise', ->
       it 'should contain a messageId', ->
-        service = new Service('testService')
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
           transaction_promise = service.sendMessageToService('service1', {})
@@ -276,7 +298,7 @@ describe 'Service', ->
         .finally( -> service.stop())
 
       it 'should use the x-interaction-id header if present', ->
-        service = new Service('testService')
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
           x_interaction_id = Util.generateUUID()
@@ -288,7 +310,7 @@ describe 'Service', ->
         .finally( -> service.stop())
 
       it 'should generate a transaction id if one is missing', ->
-        service = new Service('testService')
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
           transaction_promise = service.sendMessageToService('service1', {})
@@ -299,7 +321,7 @@ describe 'Service', ->
       it 'should send the provided x-interaction-id header if present', ->
         x_interaction_id = Util.generateUUID()
 
-        service  = new Service('testService')
+        service  = new Service('testService', timeout: 10)
         receivingService = new Service('receivingService', service_fn: (pl) ->
           expect(pl.headers['x-interaction-id']).to.equal(x_interaction_id)
           return { body: { "successful": true } }
@@ -316,7 +338,7 @@ describe 'Service', ->
         .finally( -> bb.all([service.stop(), receivingService.stop()]) )
 
       it 'should send a generated x-interaction-id header none is passed', ->
-        service  = new Service('testService')
+        service  = new Service('testService', timeout: 10)
         receivingService = new Service('receivingService', service_fn: (pl) ->
           expect(pl.headers['x-interaction-id']).to.not.be.undefined
           return {body: { "successful": true }}
@@ -651,6 +673,7 @@ describe 'Service', ->
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world2')
       )
+      .delay(20)
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )

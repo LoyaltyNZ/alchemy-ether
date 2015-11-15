@@ -50,8 +50,24 @@ class Service
   start: ->
     @connection_manager.start()
 
+
   stop: ->
-    @connection_manager.stop()
+    transaction_promises = _.values(@transactions).map( (tx) ->
+      tx.promise.catch( (e) ->
+        console.log e
+      )
+    )
+
+    if transaction_promises.length > 0
+      bb.any(transaction_promises)
+      .catch( (e) ->
+        console.log e
+      )
+      .finally( =>
+        @connection_manager.stop()
+      )
+    else
+      @connection_manager.stop()
 
   kill: ->
     @connection_manager.kill()
@@ -105,6 +121,7 @@ class Service
       deferred.resolve_promise = resolve
       deferred.reject_promise = reject
     )
+    deferred.promise = returned_promise
 
     @transactions[messageId] = deferred
 
