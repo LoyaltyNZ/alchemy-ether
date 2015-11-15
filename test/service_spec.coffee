@@ -634,7 +634,7 @@ describe 'Service', ->
         console.log "should be world2", content.body
         expect(content.body.hello).to.equal('world2')
       )
-      .delay(30)
+      .delay(50)
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
