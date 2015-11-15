@@ -164,7 +164,7 @@ class ServiceConnectionManager
     @start()
 
   start: ->
-    return true if @state == 'started'
+    return bb.try( -> true) if @state == 'started'
     # can only start from stopped or restarting
     throw new Error("#{@uuid}: #start rejected state #{@state}") if  !@in_state(['stopped', 'restarting'])
     @state = 'starting'
@@ -177,7 +177,7 @@ class ServiceConnectionManager
       bb.try( -> throw error) # turn actual error into promise error
 
   stop: ->
-    return true if @state == 'stopped'
+    return bb.try( -> true) if @state == 'stopped'
     throw new Error("#{@uuid}: #stop rejected state #{@state}") if !@in_state(['started'])
     bb.all([@get_service_channel(), @get_connection()])
     .spread( (channel, connection) =>
