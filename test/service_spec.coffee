@@ -673,7 +673,7 @@ describe 'Service', ->
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world2')
       )
-      .delay(20)
+      .delay(50)
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
