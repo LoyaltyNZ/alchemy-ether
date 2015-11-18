@@ -1,4 +1,5 @@
 bb = require "bluebird"
+_ = require('lodash')
 
 Util = require("./util")
 Bam = require './bam'
