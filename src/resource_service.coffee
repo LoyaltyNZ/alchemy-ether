@@ -38,7 +38,7 @@ class ResourceService
 
       @get_resource_name(payload)
       .then( (name) =>
-        context.resource_name = name
+        context.resource = name
         @get_interaction_id(payload)
       )
       .then( (interaction_id) =>
@@ -60,8 +60,8 @@ class ResourceService
       )
       .then((session) =>
         context.session = session
-        throw Bam.not_found(payload.path) if not context.resource_name
-        if @resources[context.resource_name][context.action].public
+        throw Bam.not_found(payload.path) if not context.resource
+        if @resources[context.resource][context.action].public
           true #action is set to public
         else
           @check_privilages(context)
@@ -72,7 +72,7 @@ class ResourceService
         log_data = _.cloneDeep(context)
         @logger.log_interaction(log_data, 'inbound')
         st = new Date().getTime()
-        bb.try( => @resources[context.resource_name][context.action](_.cloneDeep(context)))
+        bb.try( => @resources[context.resource][context.action](_.cloneDeep(context)))
         .then( (resp) =>
           #log response
           log_data.response = resp
@@ -198,7 +198,7 @@ class ResourceService
 
       return not_allowed if caller.version != context.session.caller_version
 
-      resource_permissions = context.session.permissions.resources[context.resource_name]
+      resource_permissions = context.session.permissions.resources[context.resource]
       return not_allowed if not resource_permissions
 
 
