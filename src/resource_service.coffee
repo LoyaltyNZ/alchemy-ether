@@ -43,10 +43,10 @@ class ResourceService
       )
       .then( (interaction_id) =>
         context.interaction_id = interaction_id
-        @get_method(payload)
+        @get_action(payload)
       )
-      .then( (method) =>
-        context.method = method
+      .then( (action) =>
+        context.action = action
         @get_body(payload)
       )
       .then( (body) =>
@@ -61,8 +61,8 @@ class ResourceService
       .then((session) =>
         context.session = session
         throw Bam.not_found(payload.path) if not context.resource_name
-        if @resources[context.resource_name][context.method].public
-          true #method is set to public
+        if @resources[context.resource_name][context.action].public
+          true #action is set to public
         else
           @check_privilages(context)
       )
@@ -72,7 +72,7 @@ class ResourceService
         log_data = _.cloneDeep(context)
         @logger.log_interaction(log_data, 'inbound')
         st = new Date().getTime()
-        bb.try( => @resources[context.resource_name][context.method](_.cloneDeep(context)))
+        bb.try( => @resources[context.resource_name][context.action](_.cloneDeep(context)))
         .then( (resp) =>
           #log response
           log_data.response = resp
@@ -165,13 +165,13 @@ class ResourceService
     }
 
 
-  get_method: (payload) ->
+  get_action: (payload) ->
     bb.try( ->
       switch payload.verb
-        when "POST" then method = "create"
-        when "PATCH" then method = "update"
-        when "DELETE" then method = "delete"
-        when "GET" then method = 'show' #TODO later support for list
+        when "POST" then action = "create"
+        when "PATCH" then action = "update"
+        when "DELETE" then action = "delete"
+        when "GET" then action = 'show' #TODO later support for list
         else throw Bam.method_not_allowed()
     )
 
@@ -202,10 +202,10 @@ class ResourceService
       return not_allowed if not resource_permissions
 
 
-      method_permissions = resource_permissions[context.method]
+      action_permissions = resource_permissions[context.action]
 
-      if method_permissions
-        if method_permissions == 'allow'
+      if action_permissions
+        if action_permissions == 'allow'
           return allowed
         else
           return not_allowed
