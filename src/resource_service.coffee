@@ -198,7 +198,7 @@ class ResourceService
 
       return not_allowed if caller.version != context.session.caller_version
 
-      resource_permissions = context.session.permissions.resources[context.resource]
+      resource_permissions = context.session.permissions.resources[context.resource_name]
       return not_allowed if not resource_permissions
 
 
