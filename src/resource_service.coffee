@@ -116,7 +116,10 @@ class ResourceService
     @logger = new Logger(@service, @options.logging_endpoint )
 
   start: ->
-    bb.all([@service.start(), @session_client.connect()])
+    bb.all(@resource_list.map( (resource) -> resource.start()))
+    .then( =>
+      bb.all([@service.start(), @session_client.connect()])
+    )
     .then( =>
       promises = []
       for resource in @resource_list
@@ -128,7 +131,10 @@ class ResourceService
     )
 
   stop: ->
-    bb.all([@service.stop(), @session_client.disconnect()])
+    bb.all(@resource_list.map( (resource) -> resource.stop()))
+    .then( =>
+      bb.all([@service.stop(), @session_client.disconnect()])
+    )
     .then( =>
       console.log "ResourceService #{@service_name} Stopped"
     )

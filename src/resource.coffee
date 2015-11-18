@@ -6,6 +6,11 @@ class Resource
     @_base_topic = Util.pathToTopic(@path)
     @topic = "#{@_base_topic}.#"
 
+  start: () ->
+    bb.try( -> )
+
+  stop: () ->
+    bb.try( -> )
 
   create: (context) ->
     throw Bam.method_not_allowed()
