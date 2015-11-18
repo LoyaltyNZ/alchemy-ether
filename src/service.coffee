@@ -3,11 +3,13 @@ msgpack = require('msgpack')
 Util = require("./util")
 ServiceConnectionManger = require('./service_connection_manager')
 _ = require('lodash')
+Errors = require ('./errors')
 
 Bam = require './bam'
 
 class Service
   @TimeoutError = bb.TimeoutError
+  @MessageNotDeliveredError = Errors.MessageNotDeliveredError
 
   constructor: (@name, options = {}) ->
     @options = _.defaults(
@@ -35,10 +37,19 @@ class Service
     else
       @service_queue_name = null
 
-    @connection_manager = new ServiceConnectionManger(@options.ampq_uri, @uuid, @service_queue_name, @receiveMessage, @response_queue_name, @processMessageResponse)
+    @connection_manager = new ServiceConnectionManger(
+      @options.ampq_uri,
+      @uuid,
+      @service_queue_name,
+      @receiveMessage,
+      @response_queue_name,
+      @processMessageResponse,
+      @processMessageReturned
+    )
 
   start: ->
     @connection_manager.start()
+
 
   stop: ->
     transaction_promises = _.values(@transactions).map( (tx) ->
@@ -62,89 +73,122 @@ class Service
     @connection_manager.kill()
 
   # Send a message internally
-  sendMessage: (service, payload) ->
+  sendMessageToService: (service, payload) ->
+    @sendMessageToServiceOrResource(service, payload)
 
-    # Add in headers if there are none
-    if !payload.headers
-      payload.headers = {}
+  sendMessageToResource: (payload) ->
+    if not payload.path
+      throw "payload must contain path"
+
+    @sendMessageToServiceOrResource(null, payload)
+
+  sendMessageToServiceOrResource: (service, payload) ->
+
+    # Set Up Default
+    http_payload = {
+      session_id:  payload.session_id
+      scheme:      payload.protocol    || 'http'
+      host:        payload.hostname    || 'localhost'
+      port:        payload.port        || 8080
+      path:        payload.path        || "/"
+      query:       payload.query       || {}
+      verb:        payload.verb        || "GET"
+      headers:     payload.headers     || {}
+      body:        payload.body        || ""
+      log:         payload.log         || {}
+    }
 
     # If an x-interaction-id header is present in the payload's
     # headers we use it, otherwise generate one. The presence of an interaction
     # id indicates that this message originated internally since all external
-    # http requests have anything that looks like an interaction id stripped
-    # out of them in EdgeSplitter's onHTTPRequest function.
-    if !payload.headers['x-interaction-id']
-      payload.headers['x-interaction-id'] = Util.generateUUID()
+    # http requests will be stripped
+    if !http_payload.headers['x-interaction-id']
+      http_payload.headers['x-interaction-id'] = Util.generateUUID()
+
 
     messageId = Util.generateUUID()
-    options =
+    http_message_options =
       messageId: messageId
       type: 'http_request'
       replyTo: @response_queue_name
       contentEncoding: '8bit'
       contentType: 'application/octet-stream'
+      expiration: @options.timeout
 
+    #create the returned_promise
+    deferred = {}
+    returned_promise = new bb( (resolve, reject) ->
+      deferred.resolve_promise = resolve
+      deferred.reject_promise = reject
+    )
+    deferred.promise = returned_promise
 
-    #create the deferred
-    deferred = bb.defer()
     @transactions[messageId] = deferred
-    returned_promise = deferred.promise
 
+    returned_promise = returned_promise.timeout(@options.timeout)
 
     returned_promise.timeout(@options.timeout)
     .catch(bb.TimeoutError, (err) =>
-      return if deferred.promise.isFulfilled() #Under stress the error can be thrown when already resolved
+      return if returned_promise.isFulfilled() #Under stress the error can be thrown when already resolved
       console.warn "#{@uuid}: Timeout for message ID `#{messageId}`"
-      deferred.reject(err)
+      throw err
     )
-
-    #handle the response
-    returned_promise.finally( =>
+    .catch(Service.MessageNotDeliveredError, (err) =>
+      console.warn "#{@uuid}: MessageNotDeliveredError for message ID `#{messageId}`"
+      throw err
+    )
+    .finally( =>
       delete @transactions[messageId]
     )
 
+    if service
+      message_promise = @sendRawMessageToService(service, http_payload, http_message_options)
+      .then( =>
+        returned_promise
+      )
+    else
+      resource_topic = Util.pathToTopic(http_payload.path)
+      message_promise = @sendRawMessageToResource(resource_topic, http_payload, http_message_options)
+      .then( =>
+        returned_promise
+      )
 
-    message_promise = @sendRawMessage(service, payload, options)
-    .then( =>
-      returned_promise
-    )
-
-    message_promise.service = service
     message_promise.messageId = messageId
-    message_promise.transactionId = payload.headers['x-interaction-id']
+    message_promise.transactionId = http_payload.headers['x-interaction-id']
     message_promise.response_queue_name = @response_queue_name
 
     #Send the message on the queue
-
     message_promise
 
+  processMessageReturned: (msg) =>
+    deferred = @transactions[msg?.properties?.messageId]
+    return if not deferred
+    return deferred.reject_promise(new Service.MessageNotDeliveredError(msg?.properties?.messageId, msg?.fields?.routingKey))
+
   processMessageResponse: (msg) =>
-
     deferred = @transactions[msg.properties.correlationId]
-
     if not deferred? or msg.properties.type != 'http_response'
       console.warn "#{@uuid}: Received Unsolicited Response message ID `#{msg.properties.messageId}`, correlationId: `#{msg.properties.correlationId}` type '#{msg.properties.type}'"
-      deferred.reject("Property type wrong") if deferred
+      deferred.reject_promise("Property type wrong") if deferred
       return
 
-    deferred.resolve([msg, msgpack.unpack(msg.content)])
+    deferred.resolve_promise([msg, msgpack.unpack(msg.content)])
 
   receiveMessage: (msg) =>
     type = msg.properties.type
 
     if type == 'metering_event'
       return @receiveUtilityEvent(msg)
-    else if type == 'hoodoo_service_middleware_amqp_log_message'
-      return @receiveUtilityEvent(msg)
     else if type == 'logging_event'
       return @receiveUtilityEvent(msg)
     else if type == 'http_request'
       return @receiveHTTPRequest(msg)
     else
-      console.warn "#{@uuid}: Received message with unsupported type #{type}"
-
+      @receiveUtilityEvent(msg)
 
   receiveUtilityEvent: (msg) ->
+    type = msg.properties.type
+
     if msg.content
       payload = msgpack.unpack(msg.content)
     else
@@ -153,7 +197,7 @@ class Service
     bb.try( =>
       @options.service_fn(payload)
     ).catch( (err) =>
-      console.error "#{@uuid} UTILITY_ERROR", err.stack
+      console.error "#{@uuid} UTILITY_ERROR from message type #{type}", err.stack
       throw err #Propagate up the stack
     )
 
@@ -164,11 +208,11 @@ class Service
       payload = {body: {}, headers: {}}
 
     #responce info
-    queue_to_reply_to = msg.properties.replyTo
+    service_to_reply_to = msg.properties.replyTo
     message_replying_to = msg.properties.messageId
     this_message_id = Util.generateUUID()
 
-    if not (queue_to_reply_to and message_replying_to)
+    if not (service_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
 
     # process the message
@@ -194,8 +238,8 @@ class Service
       resp.headers = response.headers || { 'x-interaction-id': payload.headers['x-interaction-id']}
 
 
-      @sendRawMessage(
-        queue_to_reply_to,
+      @replyToServiceMessage(
+        service_to_reply_to,
         resp,
         {
           type: 'http_response',
@@ -203,7 +247,6 @@ class Service
           messageId: this_message_id
         }
       )
-
     ).catch( (err) =>
       console.error "#{@uuid} HTTP_ERROR", err.stack
       resp = Bam.error(err)
@@ -211,8 +254,8 @@ class Service
 
       # If all else fails
 
-      @sendRawMessage(
-        queue_to_reply_to,
+      @replyToServiceMessage(
+        service_to_reply_to,
         resp,
         {
           type: 'http_response',
@@ -224,14 +267,21 @@ class Service
       throw err # reraise the error to the service channel layer
     )
 
-  sendRawMessage: (queue, payload, options) ->
-    try
-      @connection_manager.sendMessage(queue, msgpack.pack(payload), options)
-    catch error
-      bb.try( ->
-        console.error "#{@uuid} #sendRawMessage ERROR"
-        throw error
-      )
+  addResourceToService: (resource) ->
+    @connection_manager.addResourceToService(resource)
+
+  replyToServiceMessage: (service, payload, options) ->
+    @sendRawMessageToService(service, payload, options)
+
+  sendRawMessageToService: (service, payload, options) ->
+    @connection_manager.sendMessageToService(service, msgpack.pack(payload), options)
+
+  sendRawMessageToResource: (resource, payload, options) ->
+    @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
+
+  logMessageToService: (service, log_message, options) ->
+    options = _.defaults(options, {type: 'logging_event'})
+    @connection_manager.logMessageToService(service, msgpack.pack(log_message), options)
 
 Service.NAckError = ServiceConnectionManger.NAckError
 

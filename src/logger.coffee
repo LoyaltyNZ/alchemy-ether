@@ -18,10 +18,7 @@ class Logger
     @log_data(data)
 
   log_data: (data) ->
-    options =
-      type: 'logging_event'
-
-    @service.sendRawMessage(@logging_queue, data, options)
+    @service.logMessageToService(@logging_queue, data)
 
 
 module.exports = Logger

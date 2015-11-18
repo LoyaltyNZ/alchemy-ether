@@ -50,7 +50,7 @@ describe 'Service', ->
       bb.all([long_service.start(), service.start()])
       .then( ->
         bb.delay(10).then( -> service.stop())
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
       .spread( (resp, content) ->
@@ -72,7 +72,7 @@ describe 'Service', ->
       bb.all([long_service.start(), service.start()])
       .then( ->
         bb.delay(10).then( -> long_service.stop())
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
       .spread( (resp, content) ->
@@ -102,9 +102,9 @@ describe 'Service', ->
         )
         .delay(10)
         .then( ->
-          service.sendMessage('stoppedhellowworldservice', {})
+          service.sendMessageToService('stoppedhellowworldservice', {})
         )
-        service.sendMessage('stoppedhellowworldservice', {})
+        service.sendMessageToService('stoppedhellowworldservice', {})
 
       )
       .delay(100)
@@ -125,36 +125,35 @@ describe 'Service', ->
       recieved_message = false
       retrieved_message = false
       service = new Service('testService', {timeout: 200})
+
       long_service = new Service('deadhellowworldservice',
         service_fn: (payload) ->
+          console.log "HERE"
           recieved_message = true
-          bb.delay(100).then( -> {message: 'long'})
+          bb.delay(200).then( -> {body: "first_chance"})
       )
 
       short_service = new Service('deadhellowworldservice',
         service_fn: (payload) ->
-          console.log "HEREE"
+          console.log "HEREEee"
           retrieved_message = true
+          {body: "second_chance"}
       )
 
       bb.all([long_service.start(), service.start()])
       .then( ->
-        bb.delay(50).then( -> long_service.kill())
-        service.sendMessage('deadhellowworldservice', {})
+        bb.delay(10)
+        .then( -> long_service.kill())
+        .delay(10)
+        .then( -> short_service.start())
+
+        service.sendMessageToService('deadhellowworldservice', {})
       )
-      .then( ->
-        throw "SHOULD NOT GET HERE"
-      )
-      .catch( (e) ->
+      .spread( (msg, body) ->
+        expect(body.body).to.equal "second_chance"
+        expect(retrieved_message).to.equal true
         expect(recieved_message).to.equal true
         expect(long_service.connection_manager.state).to.equal 'dead'
-      )
-      .then( ->
-        short_service.start()
-      )
-      .delay(10)
-      .then( ->
-        expect(retrieved_message).to.equal true
       )
       .finally(->
         bb.all([short_service.stop(), service.stop()])
@@ -174,6 +173,7 @@ describe 'Service', ->
       .catch( (e) ->
         expect(service.connection_manager.state).to.equal 'dead'
       )
+
 
   describe 'response queue', ->
     response_queue_exists = (service) ->
@@ -274,46 +274,46 @@ describe 'Service', ->
       )
 
 
-  describe '#sendRawMessage', ->
+  describe '#sendRawMessageToService', ->
     it 'should work', ->
       service = new Service('push')
       s1 = new Service('pull')
       bb.all([service.start(), s1.start()])
       .then( ->
-        service.sendRawMessage('pull', {}, {})
+        service.sendRawMessageToService('pull', {}, {})
       )
       .finally( -> bb.all([service.stop(), s1.stop()]))
 
 
-  describe '#sendMessage', ->
+  describe '#sendMessageToService', ->
 
     describe 'returned transaction promise', ->
       it 'should contain a messageId', ->
         service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          transaction_promise = service.sendMessage('service1', {})
+          transaction_promise = service.sendMessageToService('service1', {})
           expect(transaction_promise.messageId).to.not.be.undefined
         )
         .finally( -> service.stop())
 
       it 'should use the x-interaction-id header if present', ->
-        service = new Service('testService')
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
           x_interaction_id = Util.generateUUID()
           payload =
             headers: { 'x-interaction-id': x_interaction_id }
-          transaction_promise = service.sendMessage('service1', payload)
+          transaction_promise = service.sendMessageToService('service1', payload)
           expect(transaction_promise.transactionId).to.equal(x_interaction_id)
         )
         .finally( -> service.stop())
 
       it 'should generate a transaction id if one is missing', ->
-        service = new Service('testService')
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          transaction_promise = service.sendMessage('service1', {})
+          transaction_promise = service.sendMessageToService('service1', {})
           expect(transaction_promise.transactionId).to.not.be.undefined
         )
         .finally( -> service.stop())
@@ -321,7 +321,7 @@ describe 'Service', ->
       it 'should send the provided x-interaction-id header if present', ->
         x_interaction_id = Util.generateUUID()
 
-        service  = new Service('testService')
+        service  = new Service('testService', timeout: 10)
         receivingService = new Service('receivingService', service_fn: (pl) ->
           expect(pl.headers['x-interaction-id']).to.equal(x_interaction_id)
           return { body: { "successful": true } }
@@ -331,14 +331,14 @@ describe 'Service', ->
         .then( ->
           payload =
             headers: { 'x-interaction-id': x_interaction_id }
-          service.sendMessage('receivingService', payload)
+          service.sendMessageToService('receivingService', payload)
         ).spread( (msg, body) ->
           expect(body.body.successful).to.be.true
         )
         .finally( -> bb.all([service.stop(), receivingService.stop()]) )
 
       it 'should send a generated x-interaction-id header none is passed', ->
-        service  = new Service('testService')
+        service  = new Service('testService', timeout: 10)
         receivingService = new Service('receivingService', service_fn: (pl) ->
           expect(pl.headers['x-interaction-id']).to.not.be.undefined
           return {body: { "successful": true }}
@@ -346,7 +346,7 @@ describe 'Service', ->
 
         bb.all([service.start(), receivingService.start()])
         .then( ->
-          service.sendMessage('receivingService', {})
+          service.sendMessageToService('receivingService', {})
         ).spread( (msg, body) ->
           expect(body.body.successful).to.be.true
         )
@@ -360,7 +360,7 @@ describe 'Service', ->
         service.start()
         .then( ->
           expect(Object.keys(service.transactions).length).to.equal(0)
-          service.sendMessage('service1', {})
+          service.sendMessageToService('service1', {})
           expect(Object.keys(service.transactions).length).to.equal(1)
         )
         .finally( -> service.stop())
@@ -375,7 +375,7 @@ describe 'Service', ->
 
         bb.all([hello_service.start(), service.start()])
         .then( ->
-          service.sendMessage('hellowworldservice', {})
+          service.sendMessageToService('hellowworldservice', {})
         )
         .spread( (msg, content) ->
           expect(content.body.hello).to.equal('world')
@@ -385,11 +385,30 @@ describe 'Service', ->
           -> bb.all([service.stop(), hello_service.stop()])
         )
 
-      it 'should timeout when no message is returned and remove transaction deferred', ->
-        service = new Service('testService', timeout: 1)
+      it 'should return a message when trying to deliver to service that doesnt exist', ->
+        service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          service.sendMessage('service1', {})
+          service.sendMessageToService('service1', {})
+          .then( ->
+            throw "It should not get here"
+          )
+          .catch(Service.MessageNotDeliveredError, (err) ->
+            expect(Object.keys(service.transactions).length).to.equal(0)
+          )
+        )
+        .finally( -> service.stop())
+
+      it 'should timeout message, so message is not read after timeout', ->
+        read_message = false
+        badservice = new Service('ts1', service_fn: -> read_message = true; {})
+        service = new Service('testService', timeout: 100)
+        bb.all([service.start(), badservice.start()])
+        .then( ->
+          badservice.stop()
+        )
+        .then( ->
+          service.sendMessageToService('ts1', {})
           .then( ->
             throw "It should not get here"
           )
@@ -397,7 +416,29 @@ describe 'Service', ->
             expect(Object.keys(service.transactions).length).to.equal(0)
           )
         )
-        .finally( -> service.stop())
+        .then( ->
+          badservice.start()
+        )
+        .delay(100)
+        .then( ->
+          expect(read_message).to.equal false
+        )
+        .finally( -> bb.all([service.stop(), badservice.stop()]))
+
+      it 'should timeout when no message is returned and remove transaction deferred', ->
+        badservice = new Service('ts1', service_fn: -> bb.delay(100))
+        service = new Service('testService', timeout: 1)
+        bb.all([service.start(), badservice.start()])
+        .then( ->
+          service.sendMessageToService('ts1', {})
+          .then( ->
+            throw "It should not get here"
+          )
+          .catch(Service.TimeoutError, (err) ->
+            expect(Object.keys(service.transactions).length).to.equal(0)
+          )
+        )
+        .finally( -> bb.all([service.stop(), badservice.stop()]))
 
   describe "option responce_queue", ->
     it 'should not listen to a service queue if false', ->
@@ -411,7 +452,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
@@ -430,7 +471,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
         .then( ->
           throw "It should not get here"
         )
@@ -452,7 +493,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world')
@@ -471,7 +512,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
         expect(content.body.hello).to.equal('world')
@@ -504,7 +545,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (resp, content) ->
         expect(content.status_code).to.equal 500
@@ -532,11 +573,11 @@ describe 'Service', ->
 
       bb.all([bad_service.start(), service.start()])
       .then( ->
-        service.sendMessage('bad_service', {}) #kill the service
+        service.sendMessageToService('bad_service', {}) #kill the service
       )
       .then( ->
         expect(recieved_messages).to.equal 1
-        service.sendMessage('bad_service', {})
+        service.sendMessageToService('bad_service', {})
       )
       .then( ->
         expect(recieved_messages).to.equal 2
@@ -560,7 +601,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (resp, content) ->
         expect(content.status_code).to.equal 500
@@ -595,7 +636,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice123', {})
+        service.sendMessageToService('hellowworldservice123', {})
         bb.delay(100).then( -> console.log "KILL"; dead_service.stop())
       )
       .then( ->
@@ -612,8 +653,7 @@ describe 'Service', ->
     it 'should handle when stop start', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          console.log "HERE"
-          bb.delay(500).then( -> console.log 'THERE'; {body: {hello: "world2"}})
+          bb.delay(500).then( -> {body: {hello: "world2"}})
       )
 
       service = new Service('testService', {timeout: 5000})
@@ -628,10 +668,9 @@ describe 'Service', ->
             service.start()
           )
         )
-        service.sendMessage('hellowworldservice', {})
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        console.log "should be world2", content.body
         expect(content.body.hello).to.equal('world2')
       )
       .delay(50)
@@ -642,37 +681,61 @@ describe 'Service', ->
     it 'should auto resart', ->
       hello_service = new Service('hellowworldservice',
         service_fn: (payload) ->
-          console.log "HERE"
-          bb.delay(500).then( -> console.log "THERE"; {body: {hello: "world1"}})
+          bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService', {timeout: 5000})
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.sendMessage('hellowworldservice', {})
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          #force close connection
+          service.connection_manager.connection.close()
+        )
+        service.sendMessageToService('hellowworldservice', {})
       )
       .spread( (msg, content) ->
-        console.log "should be world1", content.body
-        expect(content.body.hello).to.equal('world1')
-
-        service.connection_manager.get_service_channel()
-        .then( (sc) ->
-          cn = "auto_delete_queue#{Math.random()}"
-          sc.checkQueue(cn)
-        )
-        .catch( (e) ->
-          console.log e, e.stack, "BAD SERVICE CHANNEL ERROR"
-        )
-        .delay(100) #enough time to restart
+        expect(content.body.hello).to.equal('world')
       )
-      .then( ->
-        service.sendMessage('hellowworldservice', {})
-      )
-      .spread( (msg, content) ->
-        console.log "content", content
-        expect(content.body.hello).to.equal('world1')
+      .catch( (err) ->
+        console.log err.stack
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
       )
+
+
+    it 'should auto restart on service channel error and all messages should be successful', ->
+      hello_service = new Service('hellowworldservice',
+        service_fn: (payload) ->
+          console.log "RECIEVED MESSAGE"
+          bb.delay(500).then( -> console.log "REPLYING TO MESSAGE"; {body: {hello: "world"}})
+      )
+
+      service = new Service('testService', {timeout: 5000})
+
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        bb.delay(250) #enough time to put message on queue
+        .then( ->
+          service.connection_manager.get_service_channel()
+          .then( (sc) ->
+            cn = "auto_delete_queue#{Math.random()}"
+            sc.checkQueue(cn)
+          )
+        )
+        service.sendMessageToService('hellowworldservice', {})
+      )
+      .spread( (msg, content) ->
+        expect(content.body.hello).to.equal('world')
+      )
+      .catch( (err) ->
+        console.log err.stack
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+
+

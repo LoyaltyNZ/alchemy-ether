@@ -115,14 +115,18 @@ Bam.exists = (resource) ->
   }
 
 Bam.error = (err) ->
-  {
+  error = {
     bam: true
     status_code: 500
     body: {
       code: 'platform.fault'
       message: 'An unexpected error occurred'
-      stack: err
+
     }
   }
+
+  if process.env.NODE_ENV in ['development', 'test', 'staging']
+    error.stack = err.stack
+  error
 
 module.exports = Bam
