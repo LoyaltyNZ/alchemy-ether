@@ -1,3 +1,5 @@
+bb = require "bluebird"
+
 Util = require("./util")
 Bam = require './bam'
 
