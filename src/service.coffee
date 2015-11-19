@@ -16,7 +16,7 @@ class Service
       options,
       {
         service_queue: true
-        responce_queue: true
+        response_queue: true
         ampq_uri: 'amqp://localhost'
         timeout: 1000
         service_fn:
@@ -27,7 +27,7 @@ class Service
     @uuid = "#{@name}.#{Util.generateUUID()}"
     @transactions = {}
 
-    if @options.responce_queue
+    if @options.response_queue
       @response_queue_name = @uuid
     else
       @response_queue_name = null
@@ -207,7 +207,7 @@ class Service
     else
       payload = {body: {}, headers: {}}
 
-    #responce info
+    #response info
     service_to_reply_to = msg.properties.replyTo
     message_replying_to = msg.properties.messageId
     this_message_id = Util.generateUUID()

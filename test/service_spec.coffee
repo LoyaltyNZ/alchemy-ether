@@ -440,11 +440,11 @@ describe 'Service', ->
         )
         .finally( -> bb.all([service.stop(), badservice.stop()]))
 
-  describe "option responce_queue", ->
+  describe "option response_queue", ->
     it 'should not listen to a service queue if false', ->
       hello_service = new Service('hellowworldservice',
         timeout: 10,
-        responce_queue: false,
+        response_queue: false,
         service_fn: (payload) -> {body: {hello: "world"}}
       )
 

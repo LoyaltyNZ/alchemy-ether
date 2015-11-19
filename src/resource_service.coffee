@@ -27,7 +27,7 @@ class ResourceService
 
     @service_options = {
       service_queue: true
-      responce_queue: true
+      response_queue: true
       ampq_uri: @options.ampq_uri
       timeout: 1000
     }
