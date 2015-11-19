@@ -10,7 +10,6 @@ node_js:
 sudo: false
 
 before_install:
- - npm install -g npm@2.7.3
  - npm install -g node-gyp
 
 # source_key is connected to HarryLoyaltyNZ Github user for private repositories.
