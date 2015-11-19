@@ -50,4 +50,8 @@ class SessionClient
   setSession: (session_id, body = {}) ->
     @_memcached.setAsync("#{@_session_namespace}#{session_id}", JSON.stringify(body), 10)
 
+  setCaller: (caller_id, body = {}) ->
+    @_memcached.setAsync("#{@_caller_namespace}#{caller_id}", JSON.stringify(body), 10)
+
+
 module.exports = SessionClient

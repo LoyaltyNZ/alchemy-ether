@@ -176,12 +176,7 @@ class Service
 
   receiveMessage: (msg) =>
     type = msg.properties.type
-
-    if type == 'metering_event'
-      return @receiveUtilityEvent(msg)
-    else if type == 'logging_event'
-      return @receiveUtilityEvent(msg)
-    else if type == 'http_request'
+    if type == 'http_request'
       return @receiveHTTPRequest(msg)
     else
       @receiveUtilityEvent(msg)
