@@ -4,6 +4,9 @@ services:
 
 language: node_js
 
+compiler:
+  - gcc
+
 node_js:
   - "0.12.7"
 
