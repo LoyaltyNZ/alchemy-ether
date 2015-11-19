@@ -3,10 +3,7 @@ process.env.NODE_ENV = 'test'
 
 #Require test packages
 chai = require 'chai'
-chaiAsPromised = require("chai-as-promised")
-chai.use(chaiAsPromised);
 
-global.sinon = require 'sinon'
 global._ = require 'lodash'
 
 #require packages
@@ -16,7 +13,6 @@ bb.longStackTraces()
 bb.onUnhandledRejectionHandled( -> )
 bb.onPossiblyUnhandledRejection( -> )
 
-global.qhttp =  require("q-io/http")
 global.msgpack = require('msgpack')
 
 

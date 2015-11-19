@@ -1,36 +1,32 @@
 {
   "name": "alchemy",
-    "description": "Alchemy implemented in coffee-script",
+    "description": "alchemy-ether is the base layer to the alchemy framework implemented in Node.js",
     "version": "0.0.1",
-    "homepage": "https://github.com/LoyaltyNZ/alchemy_js",
+    "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
     "repository": {
         "type": "git",
-        "url": "https://github.com/LoyaltyNZ/alchemy_js.git"
+        "url": "https://github.com/LoyaltyNZ/alchemy-ether.git"
     },
     "author": {
         "name": "Graham Jenson",
-        "email": "Graham Jenson@loyaltynz.co.nz"
+        "email": "Graham.Jenson@loyalty.co.nz"
     },
     "main": "src/alchemy.coffee",
     "engines": {
         "node": ">= 0.10.33"
     },
     "dependencies": {
-        "msgpack": "0.2.6",
-        "coffee-script": "1.9.2",
-        "memcached": "2.0.0",
-        "amqplib": "0.3.2",
-        "bluebird": "2.9.27",
-        "lodash": "3.9.3",
-        "node-uuid": "1.4.3"
+        "msgpack": "1.0.2",
+        "coffee-script": "1.10.0",
+        "memcached": "2.2.0",
+        "amqplib": "0.4.0",
+        "bluebird": "3.0.5",
+        "lodash": "3.10.1",
+        "node-uuid": "1.4.7"
     },
     "devDependencies": {
-        "mocha": "1.18.2",
-        "chai": "1.9.1",
-        "sinon": "1.12.2",
-        "chai-as-promised": "4.1.1",
-        "q-io": "1.11.6",
-        "throat": "1.0.0"
+        "mocha": "2.3.4",
+        "chai": "3.4.1"
     },
     "scripts": {
         "test": "mocha"
