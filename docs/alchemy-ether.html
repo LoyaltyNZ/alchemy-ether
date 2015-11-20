@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Alchemy Micro-services Framework</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
+
+      <div class="header">
+        
+          
+          <h1 id="alchemy-micro-services-framework">Alchemy Micro-services Framework</h1>
+<p>The Alchemy <a href="http://martinfowler.com/articles/microservices.html">Micro-services</a> Framework is a framework for creating many small interconnected services that communicate over the RabbitMQ message brokering service. Building services with Alchemy has many benefits, like:</p>
+<ul>
+<li><strong>High Availability</strong>: being able to run multiple services across many different machines, communicating to a High Availability RabbitMQ Cluster.</li>
+<li><strong>Smart Load Balancing</strong>: running multiple instances of the same service, will distribute messages to services based on the service capacity and not via a simple round robin approach.</li>
+<li><strong>Service Discovery</strong> Using RabbitMQ’s routing of messages means services can communicate without knowing where they are located.</li>
+<li><strong>Deployment</strong> you can stop a service, then start a new service without missing any messages because they are buffered on RabbitMQ. Alternatively, you can run multiple versions of the same service concurrently to do rolling deploys.</li>
+<li><strong>Error Recovery</strong> If a service unexpectedly dies while processing a message, the message can be reprocessed by another service.</li>
+<li><strong>Polyglot Architecture</strong>: Each service can be implemented in the language that best suites its domain.</li>
+</ul>
+<h2 id="how-alchemy-services-work">How Alchemy Services Work</h2>
+<p>An Alchemy service communicates by registering two queues, a <strong>service queue</strong> (shared amongst all instances of a service) and a <strong>response queue</strong> (unique to that service instance). <em>For the purpose of clarity I will note a service with letters e.g. <code>A</code>, <code>B</code> and service instances identified with numbers, e.g. <code>A1</code>, <code>B2</code>.</em></p>
+<p>A service sends a message to another service by putting a message on its <strong>service queue</strong> (this message includes the <strong>response queue</strong> of the sender). An instance of that service will consume and process the message then respond to the received <strong>response queue</strong>. For example, if service <code>A1</code> wanted to message service <code>B</code>:</p>
+<pre><code>|----------|                                                  |------------|
+| RabbitMQ | &lt;-- <span class="hljs-number">1.</span> Send message <span class="hljs-literal">on</span> queue B   --------------- | Service A1 |
+|          |                                                  |            |
+|          | --- <span class="hljs-number">2.</span> Consume Message from B  -&gt; |------------| |            |
+|          |                                   | Service B1 | |            |
+|          | &lt;-- <span class="hljs-number">3.</span> Respond <span class="hljs-literal">on</span> queue A1     -- |------------| |            |
+|          |                                                  |            |
+|----------| --- <span class="hljs-number">4.</span> Receive response <span class="hljs-literal">on</span> A1  ----------------&gt; |------------|
+</code></pre><p>Passing messages between services this way means that service <code>A1</code> can send messages to <code>B</code> without knowing exactly which instance of <code>B</code> will process the message. If service <code>B1</code> becomes overloaded we can see the queue build up messages, and then start a new instance of service <code>B</code>, which, with zero configuration changes, immediately start processing messages.</p>
+<p>If the instance of <code>B</code> dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing <strong>idempotent</strong> micro-services is very important.</p>
+<h2 id="alchemy-ether">Alchemy-Ether</h2>
+<p>Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Ether includes the  you can create Services that communicate</p>
+<p>This Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.</p>
+<h2 id="code">Code</h2>
+<p>This is the service logger is <a href="./src/service.html">Service</a></p>
+
+          
+            <div class='highlight'><pre>Service = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service'</span>)</pre></div>
+          
+        
+
+        
+      </div>
+
+      
+        
+        <p>This is the service logger is <a href="./src/service_connection_manager.html">ServiceConnectionManager</a></p>
+
+        
+          <div class='highlight'><pre>ServiceConnectionManager = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service_connection_manager'</span>)
+
+
+<span class="hljs-built_in">module</span>.exports = {
+  <span class="hljs-attribute">Service</span>:                    Service
+  <span class="hljs-attribute">ServiceConnectionManager</span>:   ServiceConnectionManager
+}</pre></div>
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>

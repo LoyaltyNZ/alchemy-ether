@@ -1,15 +1,25 @@
 bb = require "bluebird"
 msgpack = require('msgpack')
-Util = require("./util")
+uuid = require 'node-uuid'
+
 ServiceConnectionManger = require('./service_connection_manager')
 _ = require('lodash')
-Errors = require ('./errors')
 
-Bam = require './bam'
+class MessageNotDeliveredError extends Error
+  constructor: (messageID, routingKey) ->
+    @name = "MessageNotDeliveredError"
+    @message = "message #{messageID} not delivered to #{routingKey}"
+    Error.captureStackTrace(this, MessageNotDeliveredError)
+
+generateUUID = ->
+    uuid.v4().replace(/-/g,'')
 
 class Service
   @TimeoutError = bb.TimeoutError
-  @MessageNotDeliveredError = Errors.MessageNotDeliveredError
+  @MessageNotDeliveredError = MessageNotDeliveredError
+  @NAckError = ServiceConnectionManger.NAckError
+  @generateUUID = generateUUID
+
 
   constructor: (@name, options = {}) ->
     @options = _.defaults(
@@ -24,7 +34,7 @@ class Service
       }
     )
     throw "Service Name undefined" if !@name
-    @uuid = "#{@name}.#{Util.generateUUID()}"
+    @uuid = "#{@name}.#{generateUUID()}"
     @transactions = {}
 
     if @options.response_queue
@@ -74,15 +84,9 @@ class Service
 
   # Send a message internally
   sendMessageToService: (service, payload) ->
-    @sendMessageToServiceOrResource(service, payload)
+    @sendHttpRequestMessage('', service, payload)
 
-  sendMessageToResource: (payload) ->
-    if not payload.path
-      throw "payload must contain path"
-
-    @sendMessageToServiceOrResource(null, payload)
-
-  sendMessageToServiceOrResource: (service, payload) ->
+  sendHttpRequestMessage: (exchange, service, payload) ->
 
     # Set Up Default
     http_payload = {
@@ -103,10 +107,10 @@ class Service
     # id indicates that this message originated internally since all external
     # http requests will be stripped
     if !http_payload.headers['x-interaction-id']
-      http_payload.headers['x-interaction-id'] = Util.generateUUID()
+      http_payload.headers['x-interaction-id'] = generateUUID()
 
 
-    messageId = Util.generateUUID()
+    messageId = generateUUID()
     http_message_options =
       messageId: messageId
       type: 'http_request'
@@ -141,17 +145,11 @@ class Service
       delete @transactions[messageId]
     )
 
-    if service
-      message_promise = @sendRawMessageToService(service, http_payload, http_message_options)
-      .then( =>
-        returned_promise
-      )
-    else
-      resource_topic = Util.pathToTopic(http_payload.path)
-      message_promise = @sendRawMessageToResource(resource_topic, http_payload, http_message_options)
-      .then( =>
-        returned_promise
-      )
+    #seperate out
+    message_promise = @sendMessage(exchange, service, http_payload, http_message_options)
+    .then( =>
+      returned_promise
+    )
 
     message_promise.messageId = messageId
     message_promise.transactionId = http_payload.headers['x-interaction-id']
@@ -168,7 +166,9 @@ class Service
   processMessageResponse: (msg) =>
     deferred = @transactions[msg.properties.correlationId]
     if not deferred? or msg.properties.type != 'http_response'
-      console.warn "#{@uuid}: Received Unsolicited Response message ID `#{msg.properties.messageId}`, correlationId: `#{msg.properties.correlationId}` type '#{msg.properties.type}'"
+      console.warn "#{@uuid}: Received Unsolicited Response message ID `#{msg.properties.messageId}`,
+      correlationId: `#{msg.properties.correlationId}`
+      type '#{msg.properties.type}'"
       deferred.reject_promise("Property type wrong") if deferred
       return
 
@@ -205,7 +205,7 @@ class Service
     #response info
     service_to_reply_to = msg.properties.replyTo
     message_replying_to = msg.properties.messageId
-    this_message_id = Util.generateUUID()
+    this_message_id = generateUUID()
 
     if not (service_to_reply_to and message_replying_to)
       console.warn "#{@uuid}: Received message with no ID and/or Reply type'"
@@ -227,11 +227,11 @@ class Service
       #3.
       #reply if the information is there
 
-      resp = {}
-      resp.body = response.body || {}
-      resp.status_code =  response.status_code || 200
-      resp.headers = response.headers || { 'x-interaction-id': payload.headers['x-interaction-id']}
-
+      resp = {
+        status_code:  response.status_code || 200
+        headers: response.headers || { 'x-interaction-id': payload.headers['x-interaction-id']}
+        body: response.body || {}
+      }
 
       @replyToServiceMessage(
         service_to_reply_to,
@@ -244,11 +244,18 @@ class Service
       )
     ).catch( (err) =>
       console.error "#{@uuid} HTTP_ERROR", err.stack
-      resp = Bam.error(err)
-      resp.headers = { 'x-interaction-id': payload.headers['x-interaction-id']}
+      resp = {
+        status_code: 500
+        headers: {
+          'x-interaction-id': payload.headers['x-interaction-id']
+        }
+        body: {
+          code: 'service.fault'
+          message: 'An unexpected error occurred'
+        }
+      }
 
       # If all else fails
-
       @replyToServiceMessage(
         service_to_reply_to,
         resp,
@@ -262,22 +269,13 @@ class Service
       throw err # reraise the error to the service channel layer
     )
 
-  addResourceToService: (resource) ->
-    @connection_manager.addResourceToService(resource)
+  replyToServiceMessage: (response_queue, payload, options) ->
+    #directly respond to message
+    @sendMessage('', response_queue, payload, options)
 
-  replyToServiceMessage: (service, payload, options) ->
-    @sendRawMessageToService(service, payload, options)
+  sendMessage: (exchange, service, payload, options) ->
+    options.mandatory = true if options.type == 'http_request'
+    @connection_manager.sendMessage(exchange, service, msgpack.pack(payload), options)
 
-  sendRawMessageToService: (service, payload, options) ->
-    @connection_manager.sendMessageToService(service, msgpack.pack(payload), options)
-
-  sendRawMessageToResource: (resource, payload, options) ->
-    @connection_manager.sendMessageToResource(resource, msgpack.pack(payload), options)
-
-  logMessageToService: (service, log_message, options) ->
-    options = _.defaults(options, {type: 'logging_event'})
-    @connection_manager.logMessageToService(service, msgpack.pack(log_message), options)
-
-Service.NAckError = ServiceConnectionManger.NAckError
 
 module.exports = Service

@@ -1,6 +1,6 @@
 {
   "name": "alchemy",
-    "description": "alchemy-ether is the base layer to the alchemy framework implemented in Node.js",
+    "description": "Alchemy-Ether is a Node.js implementation of the Alchemy Micro-service framework",
     "version": "0.0.1",
     "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
     "repository": {
@@ -11,14 +11,13 @@
         "name": "Graham Jenson",
         "email": "Graham.Jenson@loyalty.co.nz"
     },
-    "main": "src/alchemy.coffee",
+    "main": "src/alchemy-ether.coffee",
     "engines": {
-        "node": ">= 0.10.33"
+        "node": ">= 0.12.7"
     },
     "dependencies": {
         "msgpack": "1.0.2",
         "coffee-script": "1.10.0",
-        "memcached": "2.2.0",
         "amqplib": "0.4.0",
         "bluebird": "3.0.5",
         "lodash": "3.10.1",
@@ -29,7 +28,8 @@
         "chai": "3.4.1"
     },
     "scripts": {
-        "test": "mocha"
+        "test": "mocha",
+        "doc": "docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src"
     },
     "license": "LGPL 3.0",
     "private": true
