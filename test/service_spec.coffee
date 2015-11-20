@@ -274,13 +274,13 @@ describe 'Service', ->
       )
 
 
-  describe '#sendRawMessageToService', ->
+  describe '#sendMessage', ->
     it 'should work', ->
       service = new Service('push')
       s1 = new Service('pull')
       bb.all([service.start(), s1.start()])
       .then( ->
-        service.sendRawMessageToService('pull', {}, {})
+        service.sendMessage('', 'pull', {}, {})
       )
       .finally( -> bb.all([service.stop(), s1.stop()]))
 
@@ -301,7 +301,7 @@ describe 'Service', ->
         service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          x_interaction_id = Util.generateUUID()
+          x_interaction_id = Service.generateUUID()
           payload =
             headers: { 'x-interaction-id': x_interaction_id }
           transaction_promise = service.sendMessageToService('service1', payload)
@@ -319,7 +319,7 @@ describe 'Service', ->
         .finally( -> service.stop())
 
       it 'should send the provided x-interaction-id header if present', ->
-        x_interaction_id = Util.generateUUID()
+        x_interaction_id = Service.generateUUID()
 
         service  = new Service('testService', timeout: 10)
         receivingService = new Service('receivingService', service_fn: (pl) ->

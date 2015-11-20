@@ -2,9 +2,18 @@ bb = require "bluebird"
 amqp = require("amqplib")
 _ = require('lodash')
 
-Errors = require './errors'
+
+# Throwing the NAckError will cause the message to be put back on the queue.
+# This is VERY DANGEROUS because if your service can never NAck the message
+# it may live forever and cause all sorts of havoc
+class NAckError extends Error
+  constructor: () ->
+    @name = "NAckError"
+    @message = "NAck the Message"
+    Error.captureStackTrace(this, NAckError)
 
 class ServiceConnectionManager
+  @NAckError = NAckError
 
   log : (message) ->
     console.log "#{(new Date()).toISOString()} - #{@uuid} - #{message}"
@@ -92,7 +101,6 @@ class ServiceConnectionManager
       )
 
       @create_response_queue(service_channel)
-      .then( => service_channel.assertExchange("resources.exchange", 'topic'))
       .then( => @create_service_queue(service_channel))
       .then( -> service_channel) #return the service channel
     )
@@ -139,7 +147,7 @@ class ServiceConnectionManager
         .then( ->
           service_channel.ack(msg)
         )
-        .catch( Errors.NAckError, (err) ->
+        .catch( NAckError, (err) ->
           console.error "NACKed MESSAGE", err.stack
           service_channel.nack(msg)
         )
@@ -226,36 +234,11 @@ class ServiceConnectionManager
       @change_state('dead')
     )
 
-
-  addResourceToService: (resource_topic) ->
+  sendMessage: (exchange, routing_key, payload, options) ->
     @get_service_channel()
     .then( (service_channel) =>
-      service_channel.bindQueue(@service_queue_name, "resources.exchange", resource_topic)
-    )
-    .then( =>
-      @log "Bound #{resource_topic} to resources.exchange"
+      service_channel.publish(exchange, routing_key, payload, options)
     )
 
-  sendMessageToService: (service, payload, options) ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      options.mandatory = true if options.type == 'http_request'
-      service_channel.publish('', service, payload, options)
-    )
-
-  sendMessageToResource: (resource, payload, options) ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      options.mandatory = true
-      service_channel.publish("resources.exchange", resource, payload, options)
-    )
-
-  logMessageToService: (service, payload, options) ->
-    @get_service_channel()
-    .then( (service_channel) =>
-      service_channel.publish('', service, payload, options)
-    )
-
-ServiceConnectionManager.NAckError = Errors.NAckError
 
 module.exports = ServiceConnectionManager

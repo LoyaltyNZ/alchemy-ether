@@ -1,6 +1,5 @@
 services:
   - rabbitmq
-  - memcached
 
 addons:
   apt:

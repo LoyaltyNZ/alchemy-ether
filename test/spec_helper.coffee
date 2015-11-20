@@ -21,20 +21,13 @@ global.assert = chai.assert;
 
 
 #local files
-alchemy = require("../src/alchemy")
-global.Service = alchemy.Service
-global.Resource = alchemy.Resource
-global.ResourceService = alchemy.ResourceService
-global.SessionClient = alchemy.SessionClient
-
-global.Util = require("../src/util")
+AlchemyEther = require("../src/alchemy-ether")
+global.Service = AlchemyEther.Service
+global.ServiceConnectionManager = AlchemyEther.ServiceConnectionManager
 
 
 global.random_name = (prefix) ->
   "#{prefix}_#{_.random(0, 99999999)}"
-
-global.random_resource = ->
-  random_name("resource")
 
 global.random_service = ->
   random_name("random_service")
