@@ -1,36 +1,36 @@
 {
-  "name": "alchemy",
-    "description": "Alchemy-Ether is a Node.js implementation of the Alchemy Micro-service framework",
-    "version": "0.0.1",
-    "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/LoyaltyNZ/alchemy-ether.git"
-    },
-    "author": {
-        "name": "Graham Jenson",
-        "email": "Graham.Jenson@loyalty.co.nz"
-    },
-    "main": "src/alchemy-ether.coffee",
-    "engines": {
-        "node": ">= 0.12.7"
-    },
-    "dependencies": {
-        "msgpack": "1.0.2",
-        "coffee-script": "1.10.0",
-        "amqplib": "0.4.0",
-        "bluebird": "3.0.5",
-        "lodash": "3.10.1",
-        "node-uuid": "1.4.7"
-    },
-    "devDependencies": {
-        "mocha": "2.3.4",
-        "chai": "3.4.1"
-    },
-    "scripts": {
-        "test": "mocha",
-        "doc": "docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src"
-    },
-    "license": "LGPL 3.0",
-    "private": true
+  "name": "alchemy-ether",
+  "description": "Alchemy-Ether is a Node.js implementation of the Alchemy Micro-service framework",
+  "version": "0.0.1",
+  "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LoyaltyNZ/alchemy-ether.git"
+  },
+  "author": {
+    "name": "Graham Jenson",
+    "email": "Graham.Jenson@loyalty.co.nz"
+  },
+  "main": "src/alchemy-ether.coffee",
+  "engines": {
+    "node": ">= 0.12.7"
+  },
+  "dependencies": {
+    "msgpack": "1.0.2",
+    "coffee-script": "1.10.0",
+    "amqplib": "0.4.0",
+    "bluebird": "3.0.5",
+    "lodash": "3.10.1",
+    "node-uuid": "1.4.7"
+  },
+  "devDependencies": {
+    "mocha": "2.3.4",
+    "chai": "3.4.1"
+  },
+  "scripts": {
+    "test": "mocha",
+    "doc": "docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src"
+  },
+  "license": "LGPL 3.0",
+  "private": true
 }

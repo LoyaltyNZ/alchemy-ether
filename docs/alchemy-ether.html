@@ -2,7 +2,7 @@
 
 <html>
 <head>
-  <title>Alchemy Micro-services Framework</title>
+  <title>Alchemy Ether</title>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
   <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
   <link rel="stylesheet" media="all" href="docco.css" />
@@ -14,7 +14,8 @@
       <div class="header">
         
           
-          <h1 id="alchemy-micro-services-framework">Alchemy Micro-services Framework</h1>
+          <h1 id="alchemy-ether">Alchemy Ether</h1>
+<h2 id="alchemy-micro-services-framework">Alchemy Micro-services Framework</h2>
 <p>The Alchemy <a href="http://martinfowler.com/articles/microservices.html">Micro-services</a> Framework is a framework for creating many small interconnected services that communicate over the RabbitMQ message brokering service. Building services with Alchemy has many benefits, like:</p>
 <ul>
 <li><strong>High Availability</strong>: being able to run multiple services across many different machines, communicating to a High Availability RabbitMQ Cluster.</li>
@@ -27,7 +28,8 @@
 <h2 id="how-alchemy-services-work">How Alchemy Services Work</h2>
 <p>An Alchemy service communicates by registering two queues, a <strong>service queue</strong> (shared amongst all instances of a service) and a <strong>response queue</strong> (unique to that service instance). <em>For the purpose of clarity I will note a service with letters e.g. <code>A</code>, <code>B</code> and service instances identified with numbers, e.g. <code>A1</code>, <code>B2</code>.</em></p>
 <p>A service sends a message to another service by putting a message on its <strong>service queue</strong> (this message includes the <strong>response queue</strong> of the sender). An instance of that service will consume and process the message then respond to the received <strong>response queue</strong>. For example, if service <code>A1</code> wanted to message service <code>B</code>:</p>
-<pre><code>|----------|                                                  |------------|
+<pre><code>
+|----------|                                                  |------------|
 | RabbitMQ | &lt;-- <span class="hljs-number">1.</span> Send message <span class="hljs-literal">on</span> queue B   --------------- | Service A1 |
 |          |                                                  |            |
 |          | --- <span class="hljs-number">2.</span> Consume Message from B  -&gt; |------------| |            |

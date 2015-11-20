@@ -1,4 +1,6 @@
-# Alchemy Micro-services Framework
+# Alchemy Ether
+
+## Alchemy Micro-services Framework
 
 The Alchemy [Micro-services](http://martinfowler.com/articles/microservices.html) Framework is a framework for creating many small interconnected services that communicate over the RabbitMQ message brokering service. Building services with Alchemy has many benefits, like:
 
@@ -16,6 +18,7 @@ An Alchemy service communicates by registering two queues, a **service queue** (
 A service sends a message to another service by putting a message on its **service queue** (this message includes the **response queue** of the sender). An instance of that service will consume and process the message then respond to the received **response queue**. For example, if service `A1` wanted to message service `B`:
 
 ```
+
 |----------|                                                  |------------|
 | RabbitMQ | <-- 1. Send message on queue B   --------------- | Service A1 |
 |          |                                                  |            |
