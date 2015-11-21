@@ -95,25 +95,25 @@ it may live forever and cause all sorts of havoc</p>
               <div class="pilwrap ">
                 <a class="pilcrow" href="#section-3">&#182;</a>
               </div>
-              <p>The states are:
-                restarting
-                 A      |
-                error  start()
-                 |      |
-    starting —&gt; started –|
-       A             |      |
-     start()        stop()  |
-       |             V      |
-    stopped   &lt;-  stopping  |
-       |                    |
-       |——————–|
-     kill()
-       |
-    killing
-       |
-       V
-     dead</p>
-
+              <p>The states are:</p>
+<pre><code>            restarting
+             A      |
+            error  start()
+             |      |
+starting ---&gt; started --|
+   A             |      |
+ start()        stop()  |
+   |             V      |
+stopped   &lt;-  stopping  |
+   |                    |
+   |--------------------|
+ kill()
+   |
+killing
+   |
+   V
+ dead
+</code></pre>
             </div>
             
             <div class="content"><div class='highlight'><pre>

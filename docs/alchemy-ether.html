@@ -26,7 +26,7 @@
 <li><strong>Polyglot Architecture</strong>: Each service can be implemented in the language that best suites its domain.</li>
 </ul>
 <h2 id="how-alchemy-services-work">How Alchemy Services Work</h2>
-<p>An Alchemy service communicates by registering two queues, a <strong>service queue</strong> (shared amongst all instances of a service) and a <strong>response queue</strong> (unique to that service instance). <em>For the purpose of clarity I will note a service with letters e.g. <code>A</code>, <code>B</code> and service instances identified with numbers, e.g. <code>A1</code>, <code>B2</code>.</em></p>
+<p>An Alchemy service communicates by registering two queues, a <strong>service queue</strong> (shared amongst all instances of a service) and a <strong>response queue</strong> (unique to that service instance). <em>For the purpose of clarity I will note a service with letters e.g. <code>A</code>, <code>B</code> and service instances with numbers, e.g. <code>A1</code> is service <code>A</code> instance <code>1</code>.</em></p>
 <p>A service sends a message to another service by putting a message on its <strong>service queue</strong> (this message includes the <strong>response queue</strong> of the sender). An instance of that service will consume and process the message then respond to the received <strong>response queue</strong>. For example, if service <code>A1</code> wanted to message service <code>B</code>:</p>
 <pre><code>
 |----------|                                                  |------------|
@@ -37,11 +37,21 @@
 |          | &lt;-- <span class="hljs-number">3.</span> Respond <span class="hljs-literal">on</span> queue A1     -- |------------| |            |
 |          |                                                  |            |
 |----------| --- <span class="hljs-number">4.</span> Receive response <span class="hljs-literal">on</span> A1  ----------------&gt; |------------|
-</code></pre><p>Passing messages between services this way means that service <code>A1</code> can send messages to <code>B</code> without knowing exactly which instance of <code>B</code> will process the message. If service <code>B1</code> becomes overloaded we can see the queue build up messages, and then start a new instance of service <code>B</code>, which, with zero configuration changes, immediately start processing messages.</p>
+</code></pre><p>Passing messages between services this way means that service <code>A1</code> can send messages to <code>B</code> without knowing which instance of <code>B</code> will process the message. If service <code>B1</code> becomes overloaded we can see the queue build up messages, and then start a new instance of service <code>B</code>, which, with zero configuration changes, immediately start processing messages.</p>
 <p>If the instance of <code>B</code> dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing <strong>idempotent</strong> micro-services is very important.</p>
 <h2 id="alchemy-ether">Alchemy-Ether</h2>
-<p>Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Ether includes the  you can create Services that communicate</p>
-<p>This Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.</p>
+<p>Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.</p>
+<p>Ether is implemented using <a href="https://promisesaplus.com/">Promises A+</a> from the <a href="http://bluebirdjs.com/docs/getting-started.html">bluebird</a> package.</p>
+<p>To install Alchemy-Ether:</p>
+<pre><code><span class="hljs-built_in">npm</span> install alchemy-ether
+</code></pre><p>To define an Alchemy Service:</p>
+<pre><code>service = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"testService"</span>)
+service.start()
+.<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
+    <span class="hljs-built_in">console</span>.log <span class="hljs-string">"started 1"</span>
+    service.stop()
+)
+</code></pre><p>This documentation Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.</p>
 <h2 id="code">Code</h2>
 <p>This is the service logger is <a href="./src/service.html">Service</a></p>
 

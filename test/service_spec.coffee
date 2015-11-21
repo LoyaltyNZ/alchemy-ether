@@ -53,7 +53,7 @@ describe 'Service', ->
         service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
-      .spread( (resp, content) ->
+      .spread( (msg, content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
         expect(service.connection_manager.state).to.equal 'stopped'
@@ -75,7 +75,7 @@ describe 'Service', ->
         service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
-      .spread( (resp, content) ->
+      .spread( (msg, content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
         expect(long_service.connection_manager.state).to.equal 'stopped'
@@ -108,7 +108,7 @@ describe 'Service', ->
 
       )
       .delay(100)
-      .spread( (resp, content) ->
+      .spread( (msg, content) ->
         expect(recieved_messages).to.equal 1
         expect(content.body).to.equal 'long'
         expect(long_service.connection_manager.state).to.equal 'stopped'
@@ -547,7 +547,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (resp, content) ->
+      .spread( (msg, content) ->
         expect(content.status_code).to.equal 500
         dead_service.stop()
       )
@@ -603,7 +603,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (resp, content) ->
+      .spread( (msg, content) ->
         expect(content.status_code).to.equal 500
         dead_service.stop()
       )

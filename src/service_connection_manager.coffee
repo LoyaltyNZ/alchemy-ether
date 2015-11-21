@@ -20,6 +20,7 @@ class ServiceConnectionManager
 
   constructor: (@ampq_uri, @uuid, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
     # The states are:
+    #
     #                 restarting
     #                  A      |
     #                 error  start()

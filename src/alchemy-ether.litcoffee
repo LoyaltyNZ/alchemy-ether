@@ -13,7 +13,7 @@ The Alchemy [Micro-services](http://martinfowler.com/articles/microservices.html
 
 ## How Alchemy Services Work
 
-An Alchemy service communicates by registering two queues, a **service queue** (shared amongst all instances of a service) and a **response queue** (unique to that service instance). *For the purpose of clarity I will note a service with letters e.g. `A`, `B` and service instances identified with numbers, e.g. `A1`, `B2`.*
+An Alchemy service communicates by registering two queues, a **service queue** (shared amongst all instances of a service) and a **response queue** (unique to that service instance). *For the purpose of clarity I will note a service with letters e.g. `A`, `B` and service instances with numbers, e.g. `A1` is service `A` instance `1`.*
 
 A service sends a message to another service by putting a message on its **service queue** (this message includes the **response queue** of the sender). An instance of that service will consume and process the message then respond to the received **response queue**. For example, if service `A1` wanted to message service `B`:
 
@@ -29,18 +29,49 @@ A service sends a message to another service by putting a message on its **servi
 |----------| --- 4. Receive response on A1  ----------------> |------------|
 ```
 
-Passing messages between services this way means that service `A1` can send messages to `B` without knowing exactly which instance of `B` will process the message. If service `B1` becomes overloaded we can see the queue build up messages, and then start a new instance of service `B`, which, with zero configuration changes, immediately start processing messages.
+Passing messages between services this way means that service `A1` can send messages to `B` without knowing which instance of `B` will process the message. If service `B1` becomes overloaded we can see the queue build up messages, and then start a new instance of service `B`, which, with zero configuration changes, immediately start processing messages.
 
 If the instance of `B` dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing **idempotent** micro-services is very important.
 
 ## Alchemy-Ether
 
-Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Ether includes the  you can create Services that communicate
+Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.
+
+Ether is implemented using [Promises A+](https://promisesaplus.com/) from the [bluebird](http://bluebirdjs.com/docs/getting-started.html) package and implemented in [CoffeeScript](http://coffeescript.org/).
+
+To install Alchemy-Ether:
+
+```
+npm install alchemy-ether
+```
+
+To create the above described example:
+
+```
+Promise = require('bluebird')
+Service = require('./src/alchemy-ether').Service
+
+serviceA1 = new Service("A")
+
+serviceB1 = new Service("B", {service_fn: (message) -> console.log message; {"hello"} })
+
+Promise.all([ serviceA1.start(), serviceB1.start() ])
+.then( ->
+serviceA1.sendMessageToService('B', {'bob'}).then( (resp) -> console.log resp)
+)
+.then( (resp) ->
+  console.log resp
+)
+.finally( ->
+  Promise.all([ serviceA1.stop(), serviceB1.stop()])
+)
+```
 
 
-This Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.
 
-## Code
+## Documentation
+
+This documentation Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.
 
 This is the service logger is [Service](./src/service.html)
 
