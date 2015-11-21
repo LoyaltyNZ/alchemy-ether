@@ -33,6 +33,8 @@ Passing messages between services this way means that service `A1` can send mess
 
 If the instance of `B` dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing **idempotent** micro-services is very important.
 
+Alchemy tries to reuse another common communication protocol, HTTP. For example, the calling message type is `http_request` and the responding type is `http_response`, also the message packet has a body, status_code, headers...
+
 ## Alchemy-Ether
 
 Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.
@@ -45,22 +47,25 @@ To install Alchemy-Ether:
 npm install alchemy-ether
 ```
 
-To create the above described example:
+To create an instance of two services `A` and `B`, and have instance `A1` call service `B`:
 
 ```
 Promise = require('bluebird')
-Service = require('./src/alchemy-ether').Service
+Service = require('./src/alchemy-ether')
 
 serviceA1 = new Service("A")
 
-serviceB1 = new Service("B", {service_fn: (message) -> console.log message; {"hello"} })
+serviceB1 = new Service("B", {
+  service_fn: (message) ->
+    { body: "Hello #{message.body}" }
+})
 
 Promise.all([ serviceA1.start(), serviceB1.start() ])
 .then( ->
-serviceA1.sendMessageToService('B', {'bob'}).then( (resp) -> console.log resp)
+  serviceA1.sendMessageToService('B', {body: 'Alice'})
 )
 .then( (resp) ->
-  console.log resp
+  console.log resp.body
 )
 .finally( ->
   Promise.all([ serviceA1.stop(), serviceB1.stop()])
@@ -68,21 +73,13 @@ serviceA1.sendMessageToService('B', {'bob'}).then( (resp) -> console.log resp)
 ```
 
 
-
 ## Documentation
 
-This documentation Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.
+This documentation Alchemy-Ether documentation is generated from its annotated source code.
 
 This is the service logger is [Service](./src/service.html)
 
     Service = require('./service')
 
-This is the service logger is [ServiceConnectionManager](./src/service_connection_manager.html)
 
-    ServiceConnectionManager = require('./service_connection_manager')
-
-
-    module.exports = {
-      Service:                    Service
-      ServiceConnectionManager:   ServiceConnectionManager
-    }
+    module.exports = Service

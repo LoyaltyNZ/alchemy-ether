@@ -53,7 +53,7 @@ describe 'Service', ->
         service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
         expect(service.connection_manager.state).to.equal 'stopped'
@@ -75,7 +75,7 @@ describe 'Service', ->
         service.sendMessageToService('hellowworldservice', {})
       )
       .delay(100)
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(recieved_message).to.equal true
         expect(content.body).to.equal 'long'
         expect(long_service.connection_manager.state).to.equal 'stopped'
@@ -108,7 +108,7 @@ describe 'Service', ->
 
       )
       .delay(100)
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(recieved_messages).to.equal 1
         expect(content.body).to.equal 'long'
         expect(long_service.connection_manager.state).to.equal 'stopped'
@@ -149,7 +149,7 @@ describe 'Service', ->
 
         service.sendMessageToService('deadhellowworldservice', {})
       )
-      .spread( (msg, body) ->
+      .then( (body) ->
         expect(body.body).to.equal "second_chance"
         expect(retrieved_message).to.equal true
         expect(recieved_message).to.equal true
@@ -332,7 +332,7 @@ describe 'Service', ->
           payload =
             headers: { 'x-interaction-id': x_interaction_id }
           service.sendMessageToService('receivingService', payload)
-        ).spread( (msg, body) ->
+        ).then( (body) ->
           expect(body.body.successful).to.be.true
         )
         .finally( -> bb.all([service.stop(), receivingService.stop()]) )
@@ -347,7 +347,7 @@ describe 'Service', ->
         bb.all([service.start(), receivingService.start()])
         .then( ->
           service.sendMessageToService('receivingService', {})
-        ).spread( (msg, body) ->
+        ).then( (body) ->
           expect(body.body.successful).to.be.true
         )
         .finally( -> bb.all([service.stop(), receivingService.stop()]) )
@@ -377,7 +377,7 @@ describe 'Service', ->
         .then( ->
           service.sendMessageToService('hellowworldservice', {})
         )
-        .spread( (msg, content) ->
+        .then( (content) ->
           expect(content.body.hello).to.equal('world')
           expect(Object.keys(service.transactions).length).to.equal(0)
         )
@@ -495,7 +495,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.body.hello).to.equal('world')
         expect(Object.keys(service.transactions).length).to.equal(0)
       )
@@ -514,7 +514,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.body.hello).to.equal('world')
         expect(content.status_code).to.equal(201)
         expect(Object.keys(service.transactions).length).to.equal(0)
@@ -547,7 +547,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.status_code).to.equal 500
         dead_service.stop()
       )
@@ -603,7 +603,7 @@ describe 'Service', ->
       .then( ->
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.status_code).to.equal 500
         dead_service.stop()
       )
@@ -670,7 +670,7 @@ describe 'Service', ->
         )
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.body.hello).to.equal('world2')
       )
       .delay(50)
@@ -695,7 +695,7 @@ describe 'Service', ->
         )
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.body.hello).to.equal('world')
       )
       .catch( (err) ->
@@ -727,7 +727,7 @@ describe 'Service', ->
         )
         service.sendMessageToService('hellowworldservice', {})
       )
-      .spread( (msg, content) ->
+      .then( (content) ->
         expect(content.body.hello).to.equal('world')
       )
       .catch( (err) ->
