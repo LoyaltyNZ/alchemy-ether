@@ -78,11 +78,14 @@ serviceA1.start().then( -> serviceB1.start()) # Start the Services
 
 ## Documentation
 
-This documentation Alchemy-Ether documentation is generated from its annotated source code.
-
-This is the service logger is [Service](./src/service.html)
+This documentation Alchemy-Ether documentation is generated from its annotated source code and can be found here [Service](./src/service.html)
 
     Service = require('./service')
-
-
     module.exports = Service
+
+
+## Contributors:
+
+Graham Jenson
+Tom Cully
+Rory Stephenson

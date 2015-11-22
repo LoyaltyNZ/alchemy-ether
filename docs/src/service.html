@@ -11,29 +11,6 @@
   <div id="container">
     <div id="background"></div>
     
-      <ul id="jump_to">
-        <li>
-          <a class="large" href="javascript:void(0);">Jump To &hellip;</a>
-          <a class="small" href="javascript:void(0);">+</a>
-          <div id="jump_wrapper">
-          <div id="jump_page_wrapper">
-            <div id="jump_page">
-              
-                
-                <a class="source" href="service.html">
-                  service.coffee
-                </a>
-              
-                
-                <a class="source" href="service_connection_manager.html">
-                  service_connection_manager.coffee
-                </a>
-              
-            </div>
-          </div>
-        </li>
-      </ul>
-    
     <ul class="sections">
         
           <li id="title">
@@ -56,9 +33,30 @@
             <div class="content"><div class='highlight'><pre>bb = <span class="hljs-built_in">require</span> <span class="hljs-string">"bluebird"</span>
 msgpack = <span class="hljs-built_in">require</span>(<span class="hljs-string">'msgpack'</span>)
 uuid = <span class="hljs-built_in">require</span> <span class="hljs-string">'node-uuid'</span>
+amqp = <span class="hljs-built_in">require</span>(<span class="hljs-string">"amqplib"</span>)
+_ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash'</span>)</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-2">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-2">&#182;</a>
+              </div>
+              <p>Throwing the NAckError will cause the message to be put back on the queue.
+This is VERY DANGEROUS because if your service can never NAck the message
+it may live forever and cause all sorts of havoc</p>
 
-ServiceConnectionManger = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service_connection_manager'</span>)
-_ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash'</span>)
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NAckError</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Error</span></span>
+  <span class="hljs-attribute">constructor</span>: <span class="hljs-function"><span class="hljs-params">()</span> -&gt;</span>
+    <span class="hljs-property">@name</span> = <span class="hljs-string">"NAckError"</span>
+    <span class="hljs-property">@message</span> = <span class="hljs-string">"NAck the Message"</span>
+    Error.captureStackTrace(<span class="hljs-keyword">this</span>, NAckError)
 
 <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MessageNotDeliveredError</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Error</span></span>
   <span class="hljs-attribute">constructor</span>: <span class="hljs-function"><span class="hljs-params">(messageID, routingKey)</span> -&gt;</span>
@@ -69,10 +67,492 @@ _ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash
 <span class="hljs-title">generateUUID</span> = -&gt;</span>
     uuid.v4().replace(<span class="hljs-regexp">/-/g</span>,<span class="hljs-string">''</span>)
 
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ServiceConnectionManager</span></span>
+
+  log : <span class="hljs-function"><span class="hljs-params">(message)</span> -&gt;</span>
+    <span class="hljs-built_in">console</span>.log <span class="hljs-string">"<span class="hljs-subst">#{(<span class="hljs-keyword">new</span> Date()).toISOString()}</span> - <span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span> - <span class="hljs-subst">#{message}</span>"</span>
+
+  <span class="hljs-attribute">constructor</span>: <span class="hljs-function"><span class="hljs-params">(<span class="hljs-property">@ampq_uri</span>, <span class="hljs-property">@uuid</span>, <span class="hljs-property">@service_queue_name</span>, <span class="hljs-property">@service_handler</span>, <span class="hljs-property">@response_queue_name</span>, <span class="hljs-property">@response_handler</span>, <span class="hljs-property">@returned_handler</span>)</span> -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-3">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-3">&#182;</a>
+              </div>
+              <p>The states are:</p>
+<pre><code>            restarting
+             A      |
+            error  start()
+             |      |
+starting ---&gt; started --|
+   A             |      |
+ start()        stop()  |
+   |             V      |
+stopped   &lt;-  stopping  |
+   |                    |
+   |--------------------|
+ kill()
+   |
+killing
+   |
+   V
+ dead
+</code></pre>
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+    <span class="hljs-property">@state</span> = <span class="hljs-string">'stopped'</span>
+    <span class="hljs-property">@in_flight_messages</span> = {}
+
+  <span class="hljs-attribute">get_connection</span>: <span class="hljs-function">-&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-4">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-4">&#182;</a>
+              </div>
+              <p>can only get a connection if starting or started</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #get_connection rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span> !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'started'</span>, <span class="hljs-string">'starting'</span>])
+
+    <span class="hljs-keyword">return</span> <span class="hljs-property">@_connection</span> <span class="hljs-keyword">if</span> <span class="hljs-property">@_connection</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-5">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-5">&#182;</a>
+              </div>
+              <p>@log “creating connection”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-property">@_connection</span> = amqp.connect(<span class="hljs-property">@ampq_uri</span>)
+    .<span class="hljs-keyword">then</span>(<span class="hljs-function"><span class="hljs-params">(connection)</span> =&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-6">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-6">&#182;</a>
+              </div>
+              <p>@log “created connection”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      connection.<span class="hljs-literal">on</span>(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-params">(error)</span> =&gt;</span>
+        <span class="hljs-property">@log</span>(<span class="hljs-string">"AMQP Error connection error - <span class="hljs-subst">#{error}</span> - <span class="hljs-subst">#{error.stack || <span class="hljs-string">''</span>}</span>"</span>)
+        <span class="hljs-property">@_connection</span> = <span class="hljs-literal">null</span>
+      )
+      connection.<span class="hljs-literal">on</span>(<span class="hljs-string">'close'</span>, <span class="hljs-function">=&gt;</span>
+        <span class="hljs-property">@_connection</span> = <span class="hljs-literal">null</span> <span class="hljs-comment">#connection closed</span>
+      )
+      connection
+    )
+
+  <span class="hljs-attribute">get_service_channel</span>: <span class="hljs-function">-&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-7">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-7">&#182;</a>
+              </div>
+              <p>reject if not started, starting, or stopping to reply to messages</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #get_service_channel rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span> !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'started'</span>,<span class="hljs-string">'starting'</span>,<span class="hljs-string">'stopping'</span>])
+
+    <span class="hljs-keyword">return</span> <span class="hljs-property">@_service_channel</span> <span class="hljs-keyword">if</span> <span class="hljs-property">@_service_channel</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-8">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-8">&#182;</a>
+              </div>
+              <p>@log “creating service channel”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>
+    <span class="hljs-property">@_service_channel</span> = <span class="hljs-property">@get_connection</span>()
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(connection)</span> =&gt;</span>
+      connection.createChannel()
+    )
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(service_channel)</span> =&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-9">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-9">&#182;</a>
+              </div>
+              <p>@log “created service channel”
+<a href="http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/">http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/</a>
+prefetch will grab a number of un ack’ed messages from the queue
+since basically the first thing we do is ack a message this number can be quite low</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      service_channel.prefetch <span class="hljs-number">20</span>
+
+      service_channel.<span class="hljs-literal">on</span>(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-params">(error)</span> =&gt;</span>
+        <span class="hljs-property">@log</span> <span class="hljs-string">"Service Channel Errored <span class="hljs-subst">#{error}</span>, <span class="hljs-subst">#{error.stack}</span>"</span>
+        <span class="hljs-property">@_service_channel</span> = <span class="hljs-literal">null</span>
+      )
+
+      service_channel.<span class="hljs-literal">on</span>(<span class="hljs-string">'return'</span>, <span class="hljs-function"><span class="hljs-params">(message)</span> =&gt;</span>
+        <span class="hljs-property">@log</span> <span class="hljs-string">"Message Returned to Channel"</span>
+        <span class="hljs-property">@returned_handler</span>(message)
+      )
+
+      service_channel.<span class="hljs-literal">on</span>(<span class="hljs-string">'close'</span>, <span class="hljs-function">=&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-10">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-10">&#182;</a>
+              </div>
+              <p>@log “Service Channel Closed”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-property">@_service_channel</span> = <span class="hljs-literal">null</span>
+        <span class="hljs-keyword">if</span> <span class="hljs-property">@state</span> == <span class="hljs-string">'started'</span> <span class="hljs-comment"># i.e. it should be currently running</span>
+          <span class="hljs-property">@log</span> <span class="hljs-string">"AMQP Service Channel closed, restarting service"</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-11">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-11">&#182;</a>
+              </div>
+              <p>then restart</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>          <span class="hljs-property">@restart</span>()
+        <span class="hljs-keyword">else</span>
+          <span class="hljs-property">@log</span> <span class="hljs-string">"Service Channel stopped"</span>
+      )
+
+      <span class="hljs-property">@create_response_queue</span>(service_channel)
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span> <span class="hljs-property">@create_service_queue</span>(service_channel))
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> service_channel) <span class="hljs-comment">#return the service channel</span>
+    )
+
+  <span class="hljs-attribute">create_response_queue</span>: <span class="hljs-function"><span class="hljs-params">(service_channel)</span> -&gt;</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-property">@response_queue_name</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-12">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-12">&#182;</a>
+              </div>
+              <p>@log “Creating response queue”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function">      <span class="hljs-title">fn</span> = <span class="hljs-params">(msg)</span> =&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-13">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-13">&#182;</a>
+              </div>
+              <p>@log “recieved response message ID <code>#{JSON.stringify(msg.properties)}</code>“</p>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-14">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-14">&#182;</a>
+              </div>
+              <p>response immediately acks because no other service is listening to it</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        service_channel.ack(msg)
+        <span class="hljs-property">@response_handler</span>(msg)
+
+
+      service_channel.assertQueue(<span class="hljs-property">@response_queue_name</span>, {<span class="hljs-attribute">expires</span>: <span class="hljs-number">1000</span>})
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(response_queue)</span> =&gt;</span>
+        service_channel.consume(<span class="hljs-property">@response_queue_name</span>, fn)
+      )
+    <span class="hljs-keyword">else</span>
+      bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">-&gt;</span> )
+
+  <span class="hljs-attribute">create_service_queue</span>: <span class="hljs-function"><span class="hljs-params">(service_channel)</span> -&gt;</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-property">@service_queue_name</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-15">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-15">&#182;</a>
+              </div>
+              <p>@log “Creating service queue”</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function">      <span class="hljs-title">fn</span> = <span class="hljs-params">(msg)</span> =&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-16">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-16">&#182;</a>
+              </div>
+              <p>@log “recieved service message ID <code>#{msg.properties.messageId}</code>“</p>
+<p>Conditions</p>
+<ol>
+<li>The Service Function Succeeds</li>
+<li>The Service Function Has an Unknown Error</li>
+<li>The Service has a NAckError Error</li>
+<li>The Service is killed or dies while processing the message</li>
+</ol>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-17">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-17">&#182;</a>
+              </div>
+              <ol>
+<li>will ack the message</li>
+<li>will log the error then ack the message</li>
+<li>will log the error then nack the message (so that another service can handle it later)</li>
+<li>will cause the service channel to die which will not ack the message</li>
+</ol>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-18">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-18">&#182;</a>
+              </div>
+              <p>console.log ‘add message’, _.keys(@in_flight_messages).length</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        <span class="hljs-property">@in_flight_messages</span>[msg.properties.messageId] = bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">=&gt;</span> <span class="hljs-property">@service_handler</span>(msg))
+        .<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
+          service_channel.ack(msg)
+        )
+        .<span class="hljs-keyword">catch</span>( NAckError, <span class="hljs-function"><span class="hljs-params">(err)</span> -&gt;</span>
+          <span class="hljs-built_in">console</span>.error <span class="hljs-string">"NACKed MESSAGE"</span>, err.stack
+          service_channel.nack(msg)
+        )
+        .<span class="hljs-keyword">catch</span>( <span class="hljs-function"><span class="hljs-params">(err)</span> -&gt;</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-19">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-19">&#182;</a>
+              </div>
+              <p>If the service has not handled this error, then remove it</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>          <span class="hljs-built_in">console</span>.error <span class="hljs-string">"Service Channel Error"</span>, err.stack
+          service_channel.ack(msg)
+        )
+        .<span class="hljs-keyword">finally</span>( <span class="hljs-function">=&gt;</span>
+          <span class="hljs-keyword">delete</span> <span class="hljs-property">@in_flight_messages</span>[msg.properties.messageId]</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-20">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-20">&#182;</a>
+              </div>
+              <p>console.log ‘remove message’, _.keys(@in_flight_messages).length</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>        )
+
+      service_channel.assertQueue(<span class="hljs-property">@service_queue_name</span>, {<span class="hljs-attribute">durable</span>: <span class="hljs-literal">true</span>})
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span>
+        service_channel.consume(<span class="hljs-property">@service_queue_name</span>, fn)
+      )
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(ret)</span> =&gt;</span>
+        <span class="hljs-property">@_service_queue_consumer_tag</span> = ret.consumerTag
+      )
+    <span class="hljs-keyword">else</span>
+      bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">-&gt;</span> )
+
+  <span class="hljs-attribute">restart</span>: <span class="hljs-function">-&gt;</span>
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #restart rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span> !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'started'</span>])
+    <span class="hljs-property">@change_state</span>(<span class="hljs-string">'restarting'</span>)
+    <span class="hljs-property">@start</span>()
+
+  <span class="hljs-attribute">start</span>: <span class="hljs-function">-&gt;</span>
+    <span class="hljs-keyword">return</span> bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">-&gt;</span> <span class="hljs-literal">true</span>) <span class="hljs-keyword">if</span> <span class="hljs-property">@state</span> == <span class="hljs-string">'started'</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-21">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-21">&#182;</a>
+              </div>
+              <p>can only start from stopped or restarting</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #start rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span>  !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'stopped'</span>, <span class="hljs-string">'restarting'</span>])
+    <span class="hljs-property">@change_state</span>(<span class="hljs-string">'starting'</span>)
+    <span class="hljs-keyword">try</span>
+      <span class="hljs-property">@get_service_channel</span>()
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span>
+        <span class="hljs-property">@change_state</span>(<span class="hljs-string">'started'</span>)
+      )
+    <span class="hljs-keyword">catch</span> error
+      bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">-&gt;</span> <span class="hljs-keyword">throw</span> error) <span class="hljs-comment"># turn actual error into promise error</span>
+
+  <span class="hljs-attribute">stop</span>: <span class="hljs-function">-&gt;</span>
+    <span class="hljs-keyword">return</span> bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">-&gt;</span> <span class="hljs-literal">true</span>) <span class="hljs-keyword">if</span> <span class="hljs-property">@state</span> == <span class="hljs-string">'stopped'</span>
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #stop rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span> !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'started'</span>])
+    bb.all([<span class="hljs-property">@get_service_channel</span>(), <span class="hljs-property">@get_connection</span>()])
+    .spread( <span class="hljs-function"><span class="hljs-params">(channel, connection)</span> =&gt;</span>
+      <span class="hljs-property">@change_state</span>(<span class="hljs-string">'stopping'</span>)</pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-22">
+            <div class="annotation">
+              
+              <div class="pilwrap ">
+                <a class="pilcrow" href="#section-22">&#182;</a>
+              </div>
+              <p>stop receiving calls</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre>      <span class="hljs-keyword">if</span> <span class="hljs-property">@_service_queue_consumer_tag</span>
+        stop = channel.cancel(<span class="hljs-property">@_service_queue_consumer_tag</span>)
+      <span class="hljs-keyword">else</span>
+        stop = bb.<span class="hljs-keyword">try</span>(<span class="hljs-function">-&gt;</span>)
+
+      stop.<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span>
+        bb.all(_.values(<span class="hljs-property">@in_flight_messages</span>))
+      )
+      .<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
+        connection.close()
+      )
+    )
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span>
+      <span class="hljs-property">@change_state</span>(<span class="hljs-string">'stopped'</span>)
+    )
+
+  <span class="hljs-attribute">in_state</span>: <span class="hljs-function"><span class="hljs-params">(states)</span> -&gt;</span>
+    <span class="hljs-keyword">for</span> s <span class="hljs-keyword">in</span> states
+      <span class="hljs-keyword">if</span> <span class="hljs-property">@state</span> == s
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>
+
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>
+
+  <span class="hljs-attribute">change_state</span>: <span class="hljs-function"><span class="hljs-params">(state)</span> -&gt;</span>
+    <span class="hljs-property">@log</span> <span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span> -&gt; <span class="hljs-subst">#{state}</span>"</span>
+    <span class="hljs-property">@state</span> = state
+
+  <span class="hljs-attribute">kill</span>: <span class="hljs-function">-&gt;</span>
+    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> Error(<span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@uuid</span>}</span>: #kill rejected state <span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span>"</span>) <span class="hljs-keyword">if</span> !<span class="hljs-property">@in_state</span>([<span class="hljs-string">'stopped'</span>,<span class="hljs-string">'started'</span>])
+    <span class="hljs-property">@get_connection</span>()
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(connection)</span> =&gt;</span>
+      <span class="hljs-property">@change_state</span>(<span class="hljs-string">'killing'</span>)
+      connection.close()
+    )
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function">=&gt;</span>
+      <span class="hljs-property">@change_state</span>(<span class="hljs-string">'dead'</span>)
+    )
+
+  <span class="hljs-attribute">sendMessage</span>: <span class="hljs-function"><span class="hljs-params">(exchange, routing_key, payload, options)</span> -&gt;</span>
+    <span class="hljs-property">@get_service_channel</span>()
+    .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(service_channel)</span> =&gt;</span>
+      service_channel.publish(exchange, routing_key, payload, options)
+    )
+
+
 <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Service</span></span>
   <span class="hljs-property">@TimeoutError</span> = bb.TimeoutError
   <span class="hljs-property">@MessageNotDeliveredError</span> = MessageNotDeliveredError
-  <span class="hljs-property">@NAckError</span> = ServiceConnectionManger.NAckError
+  <span class="hljs-property">@NAckError</span> = NAckError
   <span class="hljs-property">@generateUUID</span> = generateUUID
 
 
@@ -102,7 +582,7 @@ _ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash
     <span class="hljs-keyword">else</span>
       <span class="hljs-property">@service_queue_name</span> = <span class="hljs-literal">null</span>
 
-    <span class="hljs-property">@connection_manager</span> = <span class="hljs-keyword">new</span> ServiceConnectionManger(
+    <span class="hljs-property">@connection_manager</span> = <span class="hljs-keyword">new</span> ServiceConnectionManager(
       <span class="hljs-property">@options</span>.ampq_uri,
       <span class="hljs-property">@uuid</span>,
       <span class="hljs-property">@service_queue_name</span>,
@@ -140,11 +620,11 @@ _ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash
         </li>
         
         
-        <li id="section-2">
+        <li id="section-23">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-2">&#182;</a>
+                <a class="pilcrow" href="#section-23">&#182;</a>
               </div>
               <p>Send a message internally</p>
 
@@ -158,11 +638,11 @@ _ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash
         </li>
         
         
-        <li id="section-3">
+        <li id="section-24">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-3">&#182;</a>
+                <a class="pilcrow" href="#section-24">&#182;</a>
               </div>
               <p>Set Up Default</p>
 
@@ -184,11 +664,11 @@ _ = <span class="hljs-built_in">require</span>(<span class="hljs-string">'lodash
         </li>
         
         
-        <li id="section-4">
+        <li id="section-25">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-4">&#182;</a>
+                <a class="pilcrow" href="#section-25">&#182;</a>
               </div>
               <p>If an x-interaction-id header is present in the payload’s
 headers we use it, otherwise generate one. The presence of an interaction
@@ -213,11 +693,11 @@ http requests will be stripped</p>
         </li>
         
         
-        <li id="section-5">
+        <li id="section-26">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-5">&#182;</a>
+                <a class="pilcrow" href="#section-26">&#182;</a>
               </div>
               <p>create the returned_promise</p>
 
@@ -251,11 +731,11 @@ http requests will be stripped</p>
         </li>
         
         
-        <li id="section-6">
+        <li id="section-27">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-6">&#182;</a>
+                <a class="pilcrow" href="#section-27">&#182;</a>
               </div>
               <p>seperate out</p>
 
@@ -273,11 +753,11 @@ http requests will be stripped</p>
         </li>
         
         
-        <li id="section-7">
+        <li id="section-28">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-7">&#182;</a>
+                <a class="pilcrow" href="#section-28">&#182;</a>
               </div>
               <p>Send the message on the queue</p>
 
@@ -299,7 +779,7 @@ http requests will be stripped</p>
       deferred.reject_promise(<span class="hljs-string">"Property type wrong"</span>) <span class="hljs-keyword">if</span> deferred
       <span class="hljs-keyword">return</span>
 
-    deferred.resolve_promise([msg, msgpack.unpack(msg.content)])
+    deferred.resolve_promise(msgpack.unpack(msg.content))
 
   <span class="hljs-attribute">receiveMessage</span>: <span class="hljs-function"><span class="hljs-params">(msg)</span> =&gt;</span>
     type = msg.properties.type
@@ -332,11 +812,11 @@ http requests will be stripped</p>
         </li>
         
         
-        <li id="section-8">
+        <li id="section-29">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-8">&#182;</a>
+                <a class="pilcrow" href="#section-29">&#182;</a>
               </div>
               <p>response info</p>
 
@@ -352,11 +832,11 @@ http requests will be stripped</p>
         </li>
         
         
-        <li id="section-9">
+        <li id="section-30">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-9">&#182;</a>
+                <a class="pilcrow" href="#section-30">&#182;</a>
               </div>
               <p>process the message
 TODO log incoming call</p>
@@ -371,11 +851,11 @@ TODO log incoming call</p>
         </li>
         
         
-        <li id="section-10">
+        <li id="section-31">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-10">&#182;</a>
+                <a class="pilcrow" href="#section-31">&#182;</a>
               </div>
               <p>service function must return a response object with
 {
@@ -424,11 +904,11 @@ reply if the information is there</li>
         </li>
         
         
-        <li id="section-11">
+        <li id="section-32">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-11">&#182;</a>
+                <a class="pilcrow" href="#section-32">&#182;</a>
               </div>
               <p>If all else fails</p>
 
@@ -452,11 +932,11 @@ reply if the information is there</li>
         </li>
         
         
-        <li id="section-12">
+        <li id="section-33">
             <div class="annotation">
               
               <div class="pilwrap ">
-                <a class="pilcrow" href="#section-12">&#182;</a>
+                <a class="pilcrow" href="#section-33">&#182;</a>
               </div>
               <p>directly respond to message</p>
 

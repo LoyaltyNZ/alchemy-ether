@@ -39,43 +39,48 @@
 |----------| --- <span class="hljs-number">4.</span> Receive response <span class="hljs-literal">on</span> A1  ----------------&gt; |------------|
 </code></pre><p>Passing messages between services this way means that service <code>A1</code> can send messages to <code>B</code> without knowing which instance of <code>B</code> will process the message. If service <code>B1</code> becomes overloaded we can see the queue build up messages, and then start a new instance of service <code>B</code>, which, with zero configuration changes, immediately start processing messages.</p>
 <p>If the instance of <code>B</code> dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing <strong>idempotent</strong> micro-services is very important.</p>
+<p>Alchemy tries to reuse another common communication protocol, HTTP, for status codes, message formatting, headers and more. This way the basis of the messaging protocol is much simpler to explain and implement.</p>
 <h2 id="alchemy-ether">Alchemy-Ether</h2>
 <p>Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.</p>
-<p>Ether is implemented using <a href="https://promisesaplus.com/">Promises A+</a> from the <a href="http://bluebirdjs.com/docs/getting-started.html">bluebird</a> package.</p>
+<p>Ether is implemented using the <a href="https://promisesaplus.com/">Promises A+ </a> specification from the <a href="http://bluebirdjs.com/docs/getting-started.html">bluebird</a> package and implemented in <a href="http://coffeescript.org/">CoffeeScript</a>.</p>
+<h3 id="getting-started">Getting Started</h3>
 <p>To install Alchemy-Ether:</p>
 <pre><code><span class="hljs-built_in">npm</span> install alchemy-ether
-</code></pre><p>To define an Alchemy Service:</p>
-<pre><code>service = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"testService"</span>)
-service.start()
+</code></pre><p>To create instances of two services, <code>A</code> and <code>B</code>, and have instance <code>A1</code> call service <code>B</code>:</p>
+<pre><code class="lang-coffeescript">Service = <span class="hljs-built_in">require</span>(<span class="hljs-string">'alchemy-ether'</span>)
+
+serviceA1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"A"</span>) <span class="hljs-comment"># Create service instance A1</span>
+
+serviceB1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"B"</span>, {
+  <span class="hljs-attribute">service_fn</span>: <span class="hljs-function"><span class="hljs-params">(message)</span> -&gt;</span>
+    <span class="hljs-comment"># How service B will process the message</span>
+    { <span class="hljs-attribute">body</span>: <span class="hljs-string">"Hello <span class="hljs-subst">#{message.body}</span>"</span> }
+})
+
+serviceA1.start().<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> serviceB1.start()) <span class="hljs-comment"># Start the Services</span>
 .<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
-    <span class="hljs-built_in">console</span>.log <span class="hljs-string">"started 1"</span>
-    service.stop()
+  <span class="hljs-comment"># Service A1 sending message to B</span>
+  serviceA1.sendMessageToService(<span class="hljs-string">'B'</span>, {<span class="hljs-attribute">body</span>: <span class="hljs-string">'Alice'</span>})
 )
-</code></pre><p>This documentation Alchemy-Ether documentation is generated from its annotated source code, so all aspects of the implementation are covered.</p>
-<h2 id="code">Code</h2>
-<p>This is the service logger is <a href="./src/service.html">Service</a></p>
+.<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(response)</span> -&gt;</span>
+  <span class="hljs-built_in">console</span>.log(response.body) <span class="hljs-comment"># "Hello Alice"</span>
+)
+.<span class="hljs-keyword">finally</span>( <span class="hljs-function">-&gt;</span>
+  serviceA1.stop().<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> serviceB1.stop())
+)
+</code></pre>
+<h2 id="documentation">Documentation</h2>
+<p>This documentation Alchemy-Ether documentation is generated from its annotated source code and can be found here <a href="./src/service.html">Service</a></p>
 
           
-            <div class='highlight'><pre>Service = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service'</span>)</pre></div>
+            <div class='highlight'><pre>Service = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service'</span>)
+<span class="hljs-built_in">module</span>.exports = Service</pre></div>
           
         
 
         
       </div>
 
-      
-        
-        <p>This is the service logger is <a href="./src/service_connection_manager.html">ServiceConnectionManager</a></p>
-
-        
-          <div class='highlight'><pre>ServiceConnectionManager = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service_connection_manager'</span>)
-
-
-<span class="hljs-built_in">module</span>.exports = {
-  <span class="hljs-attribute">Service</span>:                    Service
-  <span class="hljs-attribute">ServiceConnectionManager</span>:   ServiceConnectionManager
-}</pre></div>
-        
       
       <div class="fleur">h</div>
     </div>
