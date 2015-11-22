@@ -78,13 +78,13 @@ serviceA1.start().then( -> serviceB1.start()) # Start the Services
 
 ## Documentation
 
-This documentation Alchemy-Ether documentation is generated from its annotated source code and can be found here [Service](./src/service.html)
+This documentation Alchemy-Ether documentation is generated with [docco](https://jashkenas.github.io/docco/) from its annotated source code.
 
-    Service = require('./service')
-    module.exports = Service
+The main file for Alchemy-Ether is [Service](./src/service.html):
 
+    module.exports = require('./service')
 
-## Contributors:
+## Contributors
 
 Graham Jenson
 Tom Cully
