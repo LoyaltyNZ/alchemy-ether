@@ -33,13 +33,15 @@ Passing messages between services this way means that service `A1` can send mess
 
 If the instance of `B` dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing **idempotent** micro-services is very important.
 
-Alchemy tries to reuse another common communication protocol, HTTP. For example, the calling message type is `http_request` and the responding type is `http_response`, also the message packet has a body, status_code, headers...
+Alchemy tries to reuse another common communication protocol, HTTP, for status codes, message formatting, headers and more. This way the basis of the messaging protocol is much simpler to explain and implement.
 
 ## Alchemy-Ether
 
 Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.
 
-Ether is implemented using [Promises A+](https://promisesaplus.com/) from the [bluebird](http://bluebirdjs.com/docs/getting-started.html) package and implemented in [CoffeeScript](http://coffeescript.org/).
+Ether is implemented using the [Promises A+ ](https://promisesaplus.com/) specification from the [bluebird](http://bluebirdjs.com/docs/getting-started.html) package and implemented in [CoffeeScript](http://coffeescript.org/).
+
+### Getting Started
 
 To install Alchemy-Ether:
 
@@ -47,28 +49,29 @@ To install Alchemy-Ether:
 npm install alchemy-ether
 ```
 
-To create an instance of two services `A` and `B`, and have instance `A1` call service `B`:
+To create instances of two services, `A` and `B`, and have instance `A1` call service `B`:
 
-```
-Promise = require('bluebird')
-Service = require('./src/alchemy-ether')
+```coffeescript
+Service = require('alchemy-ether')
 
-serviceA1 = new Service("A")
+serviceA1 = new Service("A") # Create service instance A1
 
 serviceB1 = new Service("B", {
   service_fn: (message) ->
+    # How service B will process the message
     { body: "Hello #{message.body}" }
 })
 
-Promise.all([ serviceA1.start(), serviceB1.start() ])
+serviceA1.start().then( -> serviceB1.start()) # Start the Services
 .then( ->
+  # Service A1 sending message to B
   serviceA1.sendMessageToService('B', {body: 'Alice'})
 )
-.then( (resp) ->
-  console.log resp.body
+.then( (response) ->
+  console.log(response.body) # "Hello Alice"
 )
 .finally( ->
-  Promise.all([ serviceA1.stop(), serviceB1.stop()])
+  serviceA1.stop().then( -> serviceB1.stop())
 )
 ```
 
