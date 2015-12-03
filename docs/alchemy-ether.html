@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Alchemy Ether</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
+
+      <div class="header">
+        
+          
+          <h1 id="alchemy-ether">Alchemy Ether</h1>
+<h2 id="alchemy-micro-services-framework">Alchemy Micro-services Framework</h2>
+<p>The Alchemy <a href="http://martinfowler.com/articles/microservices.html">Micro-services</a> Framework is a framework for creating many small interconnected services that communicate over the RabbitMQ message brokering service. Building services with Alchemy has many benefits, like:</p>
+<ul>
+<li><strong>High Availability</strong>: being able to run multiple services across many different machines, communicating to a High Availability RabbitMQ Cluster.</li>
+<li><strong>Smart Load Balancing</strong>: running multiple instances of the same service, will distribute messages to services based on the service capacity and not via a simple round robin approach.</li>
+<li><strong>Service Discovery</strong> Using RabbitMQ’s routing of messages means services can communicate without knowing where they are located.</li>
+<li><strong>Deployment</strong> you can stop a service, then start a new service without missing any messages because they are buffered on RabbitMQ. Alternatively, you can run multiple versions of the same service concurrently to do rolling deploys.</li>
+<li><strong>Error Recovery</strong> If a service unexpectedly dies while processing a message, the message can be reprocessed by another service.</li>
+<li><strong>Polyglot Architecture</strong>: Each service can be implemented in the language that best suites its domain.</li>
+</ul>
+<h2 id="how-alchemy-services-work">How Alchemy Services Work</h2>
+<p>An Alchemy service communicates by registering two queues, a <strong>service queue</strong> (shared amongst all instances of a service) and a <strong>response queue</strong> (unique to that service instance). <em>For the purpose of clarity I will note a service with letters e.g. <code>A</code>, <code>B</code> and service instances with numbers, e.g. <code>A1</code> is service <code>A</code> instance <code>1</code>.</em></p>
+<p>A service sends a message to another service by putting a message on its <strong>service queue</strong> (this message includes the <strong>response queue</strong> of the sender). An instance of that service will consume and process the message then respond to the received <strong>response queue</strong>. For example, if service <code>A1</code> wanted to message service <code>B</code>:</p>
+<pre><code>
+|----------|                                                  |------------|
+| RabbitMQ | &lt;-- <span class="hljs-number">1.</span> Send message <span class="hljs-literal">on</span> queue B   --------------- | Service A1 |
+|          |                                                  |            |
+|          | --- <span class="hljs-number">2.</span> Consume Message from B  -&gt; |------------| |            |
+|          |                                   | Service B1 | |            |
+|          | &lt;-- <span class="hljs-number">3.</span> Respond <span class="hljs-literal">on</span> queue A1     -- |------------| |            |
+|          |                                                  |            |
+|----------| --- <span class="hljs-number">4.</span> Receive response <span class="hljs-literal">on</span> A1  ----------------&gt; |------------|
+</code></pre><p>Alchemy tries to reuse another common communication protocol, HTTP, for status codes, message formatting, headers and more. This way the basis of the messaging protocol is much simpler to explain and implement.</p>
+<p>Passing messages between services this way means that service <code>A1</code> can send messages to <code>B</code> without knowing which instance of <code>B</code> will process the message. If service <code>B1</code> becomes overloaded we can see the queue build up messages, and then start a new instance of service <code>B</code>, which, with zero configuration changes, immediately start processing messages.</p>
+<p>If the instance of <code>B</code> dies while processing a message, RabbitMQ will put the message back on the queue which can then be processed by another instance. This happens without the calling service knowing and so this makes the system much more resilient to errors. However, this also means that messages may be processed more than once, so implementing <strong>idempotent</strong> micro-services is very important.</p>
+<h2 id="alchemy-ether">Alchemy-Ether</h2>
+<p>Alchemy-Ether is the Node.js implementation of the Alchemy Framework. Node.js is a great environment for Alchemy as its event driven architecture reflects the Alchemy style of communication.</p>
+<p>Ether is implemented using the <a href="https://promisesaplus.com/">Promises A+ </a> specification from the <a href="http://bluebirdjs.com/docs/getting-started.html">bluebird</a> package and implemented in <a href="http://coffeescript.org/">CoffeeScript</a>.</p>
+<h3 id="getting-started">Getting Started</h3>
+<p>To install Alchemy-Ether:</p>
+<pre><code><span class="hljs-built_in">npm</span> install alchemy-ether
+</code></pre><p>To create instances of two services, <code>A</code> and <code>B</code>, and have instance <code>A1</code> call service <code>B</code>:</p>
+<pre><code class="lang-coffeescript">Service = <span class="hljs-built_in">require</span>(<span class="hljs-string">'alchemy-ether'</span>)
+
+serviceA1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"A"</span>) <span class="hljs-comment"># Create service instance A1</span>
+
+serviceB1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"B"</span>, {
+  <span class="hljs-attribute">service_fn</span>: <span class="hljs-function"><span class="hljs-params">(message)</span> -&gt;</span>
+    <span class="hljs-comment"># How service B will process the message</span>
+    { <span class="hljs-attribute">body</span>: <span class="hljs-string">"Hello <span class="hljs-subst">#{message.body}</span>"</span> }
+})
+
+serviceA1.start().<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> serviceB1.start()) <span class="hljs-comment"># Start the Services</span>
+.<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
+  <span class="hljs-comment"># Service A1 sending message to B</span>
+  serviceA1.send_message_to_service(<span class="hljs-string">'B'</span>, {<span class="hljs-attribute">body</span>: <span class="hljs-string">'Alice'</span>})
+)
+.<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(response)</span> -&gt;</span>
+  <span class="hljs-built_in">console</span>.log(response.body) <span class="hljs-comment"># "Hello Alice"</span>
+)
+.<span class="hljs-keyword">finally</span>( <span class="hljs-function">-&gt;</span>
+  serviceA1.stop().<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> serviceB1.stop())
+)
+</code></pre>
+<h2 id="documentation">Documentation</h2>
+<p><em>This Alchemy-Ether documentation is generated with <a href="https://jashkenas.github.io/docco/">docco</a> from its annotated source code.</em></p>
+<p>The Alchemy-Ether package exports <a href="./src/service.html">Service</a>:</p>
+
+          
+            <div class='highlight'><pre><span class="hljs-built_in">module</span>.exports = <span class="hljs-built_in">require</span>(<span class="hljs-string">'./service'</span>)</pre></div>
+          
+        
+
+        
+      </div>
+
+      
+        
+        <h2 id="examples">Examples</h2>
+<ul>
+<li><a href="./examples/example_1_send_message.html">Sending a message between services</a></li>
+</ul>
+<h2 id="contributors">Contributors</h2>
+<ul>
+<li>Graham Jenson</li>
+<li>Tom Cully</li>
+<li>Wayne Hoover</li>
+<li>Rory Stephenson</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<p>????-??-?? - Open Sourced  - Graham</p>
+
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>
