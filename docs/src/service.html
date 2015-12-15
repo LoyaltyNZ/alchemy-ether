@@ -396,7 +396,7 @@ it logs an error and/or rejects the transaction</p>
             <div class="content"><div class='highlight'><pre>  <span class="hljs-attribute">process_response_queue_message</span>: <span class="hljs-function"><span class="hljs-params">(msg)</span> =&gt;</span>
     deferred = <span class="hljs-property">@transactions</span>[msg.properties.correlationId]
     <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> deferred? <span class="hljs-keyword">or</span> msg.properties.type != <span class="hljs-string">'http_response'</span>
-      _log_message_error <span class="hljs-property">@uuid</span>, <span class="hljs-string">"Received Unsolicited Message on Response Queue"</span>, msg
+      _log_message_error(<span class="hljs-property">@uuid</span>, <span class="hljs-string">"Received Unsolicited Message on Response Queue"</span>, msg)
       deferred.reject_promise(<span class="hljs-string">"Property type wrong"</span>) <span class="hljs-keyword">if</span> deferred
       <span class="hljs-keyword">return</span>
     deferred.resolve_promise(msgpack.unpack(msg.content))</pre></div></div>
@@ -420,7 +420,7 @@ If a matched transaction is fond it rejects with a MessageNotDeliveredError</p>
             <div class="content"><div class='highlight'><pre>  <span class="hljs-attribute">process_returned_message</span>: <span class="hljs-function"><span class="hljs-params">(msg)</span> =&gt;</span>
     deferred = <span class="hljs-property">@transactions</span>[msg?.properties?.messageId]
     <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> deferred
-      _log_message_error <span class="hljs-property">@uuid</span>, <span class="hljs-string">"Received Unsolicited Message on Return Queue"</span>, msg
+      _log_message_error(<span class="hljs-property">@uuid</span>, <span class="hljs-string">"Received Unsolicited Message on Return Queue"</span>, msg)
       <span class="hljs-keyword">return</span>
     <span class="hljs-keyword">return</span> deferred.reject_promise(<span class="hljs-keyword">new</span> Service.MessageNotDeliveredError(msg?.properties?.messageId, msg?.fields?.routingKey))</pre></div></div>
             
@@ -483,7 +483,7 @@ otherwise pass to <code>receive_utility_event</code>.</p>
     bb.<span class="hljs-keyword">try</span>( <span class="hljs-function">=&gt;</span>
       <span class="hljs-property">@options</span>.service_fn(message)
     ).<span class="hljs-keyword">catch</span>( <span class="hljs-function"><span class="hljs-params">(err)</span> =&gt;</span>
-      _log_error <span class="hljs-property">@uuid</span>, <span class="hljs-string">"UTILITY_ERROR from message type <span class="hljs-subst">#{type}</span>"</span>, err
+      _log_error(<span class="hljs-property">@uuid</span>, <span class="hljs-string">"UTILITY_ERROR from message type <span class="hljs-subst">#{type}</span>"</span>, err)
       <span class="hljs-keyword">throw</span> err
     )</pre></div></div>
             
@@ -536,7 +536,7 @@ HTTPish error object with status_code 500 is sent to the messaging service.</p>
         }
       )
     ).<span class="hljs-keyword">catch</span>( <span class="hljs-function"><span class="hljs-params">(err)</span> =&gt;</span>
-      _log_error <span class="hljs-property">@uuid</span>, <span class="hljs-string">"service_fn HTTP_ERROR"</span>, err
+      _log_error(<span class="hljs-property">@uuid</span>, <span class="hljs-string">"service_fn HTTP_ERROR"</span>, err)
       resp = {
         <span class="hljs-attribute">status_code</span>: <span class="hljs-number">500</span>
         <span class="hljs-attribute">headers</span>: {
@@ -809,7 +809,7 @@ before closing the connection and changing the state</p>
             </div>
             
             <div class="content"><div class='highlight'><pre>  <span class="hljs-attribute">_change_state</span>: <span class="hljs-function"><span class="hljs-params">(state)</span> -&gt;</span>
-    _log <span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span> -&gt; <span class="hljs-subst">#{state}</span>"</span>
+    _log(<span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"<span class="hljs-subst">#{<span class="hljs-property">@state</span>}</span> -&gt; <span class="hljs-subst">#{state}</span>"</span>)
     <span class="hljs-property">@state</span> = state</pre></div></div>
             
         </li>
@@ -848,7 +848,7 @@ it creates the connection if it does not exist</p>
     <span class="hljs-property">@_connection</span> = amqp.connect(<span class="hljs-property">@ampq_uri</span>)
     .<span class="hljs-keyword">then</span>(<span class="hljs-function"><span class="hljs-params">(connection)</span> =&gt;</span>
       connection.<span class="hljs-literal">on</span>(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-params">(error)</span> =&gt;</span>
-        _log_error <span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"AMQP Error connection error"</span>, error
+        _log_error(<span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"AMQP Error connection error"</span>, error)
         <span class="hljs-property">@_connection</span> = <span class="hljs-literal">null</span>
       )
       connection.<span class="hljs-literal">on</span>(<span class="hljs-string">'close'</span>, <span class="hljs-function">=&gt;</span>
@@ -890,12 +890,12 @@ and restart it if it is meant to be running.</p>
       service_channel.prefetch <span class="hljs-number">20</span>
 
       service_channel.<span class="hljs-literal">on</span>(<span class="hljs-string">'return'</span>, <span class="hljs-function"><span class="hljs-params">(message)</span> =&gt;</span>
-        _log <span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"Message Returned to Channel"</span>
+        _log(<span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"Message Returned to Channel"</span>)
         <span class="hljs-property">@returned_handler</span>(message)
       )
 
       service_channel.<span class="hljs-literal">on</span>(<span class="hljs-string">'error'</span>, <span class="hljs-function"><span class="hljs-params">(error)</span> =&gt;</span>
-        _log_error <span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"Service Channel Errored"</span>, error
+        _log_error(<span class="hljs-property">@response_queue_name</span>, <span class="hljs-string">"Service Channel Errored"</span>, error)
         <span class="hljs-property">@_service_channel</span> = <span class="hljs-literal">null</span>
       )
 
