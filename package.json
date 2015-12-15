@@ -1,7 +1,7 @@
 {
   "name": "alchemy-ether",
   "description": "Alchemy-Ether is a Node.js implementation of the Alchemy Micro-service framework",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
   "repository": {
     "type": "git",
@@ -29,7 +29,7 @@
   },
   "scripts": {
     "test": "mocha",
-    "doc": "docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src && docco examples/*.coffee -o docs/examples"
+    "doc": "cat src/alchemy-ether.litcoffee > README.md && docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src && docco examples/*.coffee -o docs/examples"
   },
   "license": "LGPL 3.0"
 }
