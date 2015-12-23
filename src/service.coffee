@@ -33,6 +33,7 @@ class Service
 
   # A `Service` is constructed with a required `name` (e.g. `B`) and a map of options:
   # * `ampq_uri`: URI to RabbitMQ (default `'amqp://localhost'`)
+  # * `prefetch`: the number of messages to prefetch off the queue
   # * `service_queue`: create a service queue (default `true`)
   # * `response_queue`: create a response queue (default `true`)
   # * `timeout`: the timeout in ms to wait for responses from other services (default `1000`)
@@ -57,6 +58,7 @@ class Service
       options,
       {
         ampq_uri: 'amqp://localhost'
+        prefetch: 20
         service_queue: true
         response_queue: true
         timeout: 1000
@@ -82,6 +84,7 @@ class Service
     @connection_manager = new ServiceConnectionManager(
       @options.ampq_uri,
       @service_queue_name,
+      @options.prefetch
       @process_service_queue_message,
       @response_queue_name,
       @process_response_queue_message,
@@ -380,16 +383,17 @@ class ServiceConnectionManager
   # `constructor(ampq_uri, service_queue_name, service_handler, response_queue_name, response_handler, returned_handler)`
   # 1. `ampq_uri`           : the string URI to amqp
   # 2. `service_queue_name` : the string name of the service
-  # 3. `service_handler`    : the function to process a message
-  # 4. `response_queue_name`: the string response queue name
-  # 5. `response_handler`   : the function to handle responses
-  # 6. `returned_handler`   : the function to handle returned messages
+  # 3. `prefetch`           : the number of messages to prefetch
+  # 4. `service_handler`    : the function to process a message
+  # 5. `response_queue_name`: the string response queue name
+  # 6. `response_handler`   : the function to handle responses
+  # 7. `returned_handler`   : the function to handle returned messages
   #
   # This sets the initial state to `stopped`
   #
   # `processing_messages` is used to store the `message_id` to the promise of the currently processing message.
   # So if a `stop` is called we can wait for currently processing messages.
-  constructor: (@ampq_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
+  constructor: (@ampq_uri, @service_queue_name, @prefetch, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
     @state = 'stopped'
     @processing_messages = {}
 
@@ -511,7 +515,7 @@ class ServiceConnectionManager
   #
   # This function will raise exception if state is not `started` or `starting` or `stopping`
   #
-  # It sets the channels `prefetch` to `20` which will retrieve 20 messages from the queue at a time.
+  # It sets the channels `prefetch` which will retrieve that amount of messages from the queue at a time.
   # `20` is the size recommended from
   # [this](http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/) post.
   #
@@ -529,7 +533,7 @@ class ServiceConnectionManager
       connection.createChannel()
     )
     .then( (service_channel) =>
-      service_channel.prefetch 20
+      service_channel.prefetch @prefetch
 
       service_channel.on('return', (message) =>
         _log(@response_queue_name, "Message Returned to Channel")
