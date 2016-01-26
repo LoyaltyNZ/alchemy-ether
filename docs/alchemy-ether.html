@@ -52,15 +52,15 @@
 serviceA1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"A"</span>) <span class="hljs-comment"># Create service instance A1</span>
 
 serviceB1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-string">"B"</span>, {
-  <span class="hljs-attribute">service_fn</span>: <span class="hljs-function"><span class="hljs-params">(message)</span> -&gt;</span>
+  service_fn: <span class="hljs-function"><span class="hljs-params">(message)</span> -&gt;</span>
     <span class="hljs-comment"># How service B will process the message</span>
-    { <span class="hljs-attribute">body</span>: <span class="hljs-string">"Hello <span class="hljs-subst">#{message.body}</span>"</span> }
+    { body: <span class="hljs-string">"Hello <span class="hljs-subst">#{message.body}</span>"</span> }
 })
 
 serviceA1.start().<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span> serviceB1.start()) <span class="hljs-comment"># Start the Services</span>
 .<span class="hljs-keyword">then</span>( <span class="hljs-function">-&gt;</span>
   <span class="hljs-comment"># Service A1 sending message to B</span>
-  serviceA1.send_message_to_service(<span class="hljs-string">'B'</span>, {<span class="hljs-attribute">body</span>: <span class="hljs-string">'Alice'</span>})
+  serviceA1.send_message_to_service(<span class="hljs-string">'B'</span>, {body: <span class="hljs-string">'Alice'</span>})
 )
 .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(response)</span> -&gt;</span>
   <span class="hljs-built_in">console</span>.log(response.body) <span class="hljs-comment"># "Hello Alice"</span>
