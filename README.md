@@ -79,13 +79,13 @@ serviceA1.start().then( -> serviceB1.start()) # Start the Services
 
 *This Alchemy-Ether documentation is generated with [docco](https://jashkenas.github.io/docco/) from its annotated source code.*
 
-The Alchemy-Ether package exports [Service](./docs/src/service.html):
+The Alchemy-Ether package exports [Service](./src/service.html):
 
     module.exports = require('./service')
 
 ## Examples
 
-* [Sending a message between services](./docs/examples/example_1_send_message.html)
+* [Sending a message between services](./examples/example_1_send_message.html)
 
 ## Contributors
 
@@ -96,5 +96,4 @@ The Alchemy-Ether package exports [Service](./docs/src/service.html):
 
 ## Changelog
 
-2015-12-16 - Updating Readme from simlink  - Graham
-2015-12-3  - Open Sourced  - Graham
+2015-12-3 - Open Sourced  - Graham

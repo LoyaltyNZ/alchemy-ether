@@ -32,7 +32,7 @@ class Service
   @generateUUID: -> uuid.v4().replace(/-/g,'')
 
   # A `Service` is constructed with a required `name` (e.g. `B`) and a map of options:
-  # * `ampq_uri`: URI to RabbitMQ (default `'amqp://localhost'`)
+  # * `amqp_uri`: URI to RabbitMQ (default `'amqp://localhost'`)
   # * `service_queue`: create a service queue (default `true`)
   # * `response_queue`: create a response queue (default `true`)
   # * `timeout`: the timeout in ms to wait for responses from other services (default `1000`)
@@ -56,7 +56,7 @@ class Service
     @options = _.defaults(
       options,
       {
-        ampq_uri: 'amqp://localhost'
+        amqp_uri: 'amqp://localhost'
         service_queue: true
         response_queue: true
         timeout: 1000
@@ -80,7 +80,7 @@ class Service
       @service_queue_name = null
 
     @connection_manager = new ServiceConnectionManager(
-      @options.ampq_uri,
+      @options.amqp_uri,
       @service_queue_name,
       @process_service_queue_message,
       @response_queue_name,
@@ -377,8 +377,8 @@ class Service
 class ServiceConnectionManager
 
 
-  # `constructor(ampq_uri, service_queue_name, service_handler, response_queue_name, response_handler, returned_handler)`
-  # 1. `ampq_uri`           : the string URI to amqp
+  # `constructor(amqp_uri, service_queue_name, service_handler, response_queue_name, response_handler, returned_handler)`
+  # 1. `amqp_uri`           : the string URI to amqp
   # 2. `service_queue_name` : the string name of the service
   # 3. `service_handler`    : the function to process a message
   # 4. `response_queue_name`: the string response queue name
@@ -389,7 +389,7 @@ class ServiceConnectionManager
   #
   # `processing_messages` is used to store the `message_id` to the promise of the currently processing message.
   # So if a `stop` is called we can wait for currently processing messages.
-  constructor: (@ampq_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
+  constructor: (@amqp_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler) ->
     @state = 'stopped'
     @processing_messages = {}
 
@@ -494,7 +494,7 @@ class ServiceConnectionManager
     @_assert_state(['started', 'starting'])
     return @_connection if @_connection
 
-    @_connection = amqp.connect(@ampq_uri)
+    @_connection = amqp.connect(@amqp_uri)
     .then((connection) =>
       connection.on('error', (error) =>
         _log_error(@response_queue_name, "AMQP Error connection error", error)
