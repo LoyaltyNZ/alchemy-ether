@@ -176,38 +176,29 @@ describe 'Service', ->
 
 
   describe 'response queue', ->
-    response_queue_exists = (service) ->
-      checker = new Service("service_queue_checker")
+    response_queue_exists = (service, response_queue) ->
       exists = false
-      checker.start()
+      service.connection_manager.get_service_channel()
+      .then( (sc) ->
+        sc.checkQueue(response_queue)
+      )
       .then( ->
-        checker.connection_manager.get_service_channel()
-        .then( (sc) ->
-          sc.checkQueue(service.response_queue_name)
-        )
-        .then( ->
-          #will error out if it doesnt
-          exists = true
-        )
-        .catch( ->
-          exists = false
-        )
+        #will error out if it doesnt
+        exists = true
+      )
+      .catch( (e) ->
+        exists = false
       )
       .then( ->
         exists
       )
-      .finally( ->
-        if checker.connection_manager.state == 'started'
-          checker.stop()
-      )
-
 
     it 'should exist after creation', ->
       service = new Service("testService")
       exists = false
       service.start()
       .then(->
-        response_queue_exists(service)
+        response_queue_exists(service, service.response_queue_name)
         .then( (ret) ->
           exists = ret
         )
@@ -219,58 +210,31 @@ describe 'Service', ->
         service.stop()
       )
 
-    it 'should exist after no messages (as there is a consumer)', ->
+    it 'should exist with same name after channel error', ->
       service = new Service("testService")
       exists = false
-      service.start()
-      .delay(2000)
-      .then( ->
-        response_queue_exists(service)
-        .then( (ret) ->
-          exists = ret
-        )
-      )
-      .then( ->
-        expect(exists).to.equal true
-      )
-      .finally( ->
-        service.stop()
-      )
-
-    it 'should exist after stopping and restarting (if quick enough)', ->
-      service = new Service("testService")
-      exists = false
+      response_queue = null
       service.start()
       .then(->
-        service.stop()
+        response_queue = service.response_queue_name
+        service.connection_manager.get_service_channel()
+        .then( (sc) ->
+          cn = "auto_delete_queue#{Math.random()}"
+          sc.checkQueue(cn)
+        )
+        .catch( (e) ->
+          console.log "Channel Error"
+        )
       )
       .delay(100)
       .then( ->
-        response_queue_exists(service)
+        response_queue_exists(service, response_queue)
         .then( (ret) ->
           exists = ret
         )
       )
       .then( ->
         expect(exists).to.equal true
-      )
-
-    it 'should not exist after stopping for a longer period of time', ->
-      service = new Service("testService")
-      exists = true
-      service.start()
-      .then(->
-        service.stop()
-      )
-      .delay(2000)
-      .then( ->
-        response_queue_exists(service)
-        .then( (ret) ->
-          exists = ret
-        )
-      )
-      .then( ->
-        expect(exists).to.equal false
       )
 
 

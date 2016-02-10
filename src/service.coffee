@@ -564,7 +564,7 @@ class ServiceConnectionManager
 
   # `_create_response_queue` takes the service channel and creates the response queue
   _create_response_queue: (service_channel) ->
-    service_channel.assertQueue(@response_queue_name, {expires: 1000})
+    service_channel.assertQueue(@response_queue_name, {exclusive: true})
     .then( (response_queue) =>
       service_channel.consume(@response_queue_name, @_create_response_queue_function(service_channel))
     )
