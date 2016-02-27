@@ -41,8 +41,8 @@ describe 'Service', ->
     it 'should process the outgoing messages then stop', ->
       recieved_message = false
       service = new Service('testService')
-      long_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      long_service = new Service('hellowworldservice', {},
+        (payload) ->
           recieved_message = true
           bb.delay(50).then( -> {body: 'long'})
       )
@@ -63,8 +63,7 @@ describe 'Service', ->
     it 'should process the incoming messages then stop', ->
       recieved_message = false
       service = new Service('testService')
-      long_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      long_service = new Service('hellowworldservice',{}, (payload) ->
           recieved_message = true
           bb.delay(50).then( -> {body: 'long'})
       )
@@ -85,8 +84,8 @@ describe 'Service', ->
     it 'should stop receiving messages while it is stopping', ->
       recieved_messages = 0
       service = new Service('testService')
-      long_service = new Service('stoppedhellowworldservice',
-        service_fn: (payload) ->
+      long_service = new Service('stoppedhellowworldservice', {}
+        (payload) ->
           recieved_messages++
           bb.delay(50).then( -> {body: 'long'})
       )
@@ -126,15 +125,13 @@ describe 'Service', ->
       retrieved_message = false
       service = new Service('testService', {timeout: 200})
 
-      long_service = new Service('deadhellowworldservice',
-        service_fn: (payload) ->
+      long_service = new Service('deadhellowworldservice',{}, (payload) ->
           console.log "HERE"
           recieved_message = true
           bb.delay(200).then( -> {body: "first_chance"})
       )
 
-      short_service = new Service('deadhellowworldservice',
-        service_fn: (payload) ->
+      short_service = new Service('deadhellowworldservice',{}, (payload) ->
           console.log "HEREEee"
           retrieved_message = true
           {body: "second_chance"}
@@ -286,7 +283,7 @@ describe 'Service', ->
         x_interaction_id = Service.generateUUID()
 
         service  = new Service('testService', timeout: 10)
-        receivingService = new Service('receivingService', service_fn: (pl) ->
+        receivingService = new Service('receivingService', {}, (pl) ->
           expect(pl.headers['x-interaction-id']).to.equal(x_interaction_id)
           return { body: { "successful": true } }
         )
@@ -303,7 +300,7 @@ describe 'Service', ->
 
       it 'should send a generated x-interaction-id header none is passed', ->
         service  = new Service('testService', timeout: 10)
-        receivingService = new Service('receivingService', service_fn: (pl) ->
+        receivingService = new Service('receivingService', {},  (pl) ->
           expect(pl.headers['x-interaction-id']).to.not.be.undefined
           return {body: { "successful": true }}
         )
@@ -330,9 +327,8 @@ describe 'Service', ->
         .finally( -> service.stop())
 
       it 'should remove transaction after response', ->
-        hello_service = new Service('hellowworldservice',
-          timeout: 10,
-          service_fn: (payload) -> {body: {hello: "world"}}
+        hello_service = new Service('hellowworldservice', {timeout: 10}, (payload) ->
+          {body: {hello: "world"}}
         )
 
         service = new Service('testService')
@@ -365,7 +361,7 @@ describe 'Service', ->
 
       it 'should timeout message, so message is not read after timeout', ->
         read_message = false
-        badservice = new Service('ts1', service_fn: -> read_message = true; {})
+        badservice = new Service('ts1', {}, -> read_message = true; {})
         service = new Service('testService', timeout: 100)
         bb.all([service.start(), badservice.start()])
         .then( ->
@@ -390,7 +386,7 @@ describe 'Service', ->
         .finally( -> bb.all([service.stop(), badservice.stop()]))
 
       it 'should timeout when no message is returned and remove transaction deferred', ->
-        badservice = new Service('ts1', service_fn: -> bb.delay(100))
+        badservice = new Service('ts1', {}, -> bb.delay(100))
         service = new Service('testService', timeout: 1)
         bb.all([service.start(), badservice.start()])
         .then( ->
@@ -406,10 +402,8 @@ describe 'Service', ->
 
   describe "option response_queue", ->
     it 'should not listen to a service queue if false', ->
-      hello_service = new Service('hellowworldservice',
-        timeout: 10,
-        response_queue: false,
-        service_fn: (payload) -> {body: {hello: "world"}}
+      hello_service = new Service('hellowworldservice', { timeout: 10, response_queue: false}, (payload) ->
+        {body: {hello: "world"}}
       )
 
       service = new Service('testService')
@@ -425,10 +419,8 @@ describe 'Service', ->
 
   describe "option service_queue", ->
     it 'should not listen to a service queue if false', ->
-      hello_service = new Service('hellowworldservice',
-        timeout: 10,
-        service_queue: false,
-        service_fn: (payload) -> {body: {hello: "world"}}
+      hello_service = new Service('hellowworldservice', {timeout: 10, service_queue: false}, (payload) ->
+        {body: {hello: "world"}}
       )
 
       service = new Service('testService')
@@ -449,8 +441,8 @@ describe 'Service', ->
 
   describe "service_fn", ->
     it 'should work when returning a promise', ->
-      hello_service = new Service('hellowworldservice',
-        service_fn: (payload) -> bb.delay(10).then( -> {body: {hello: "world"}})
+      hello_service = new Service('hellowworldservice', {}, (payload) ->
+        bb.delay(10).then( -> {body: {hello: "world"}})
       )
 
       service = new Service('testService')
@@ -468,8 +460,8 @@ describe 'Service', ->
       )
 
     it "should be able to alter status", ->
-      hello_service = new Service('hellowworldservice',
-        service_fn: (payload) -> {body: {hello: "world"}, status_code: 201}
+      hello_service = new Service('hellowworldservice', {}, (payload) ->
+        {body: {hello: "world"}, status_code: 201}
       )
 
       service = new Service('testService')
@@ -494,15 +486,13 @@ describe 'Service', ->
     it 'should nack the message if NAckError is thrown', ->
       recieved_first_time = false
       recieved_second_time = false
-      dead_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      dead_service = new Service('hellowworldservice',{}, (payload) ->
           recieved_first_time = true
           throw new Service.NAckError()
       )
 
       service = new Service('testService', {timeout: 5000})
-      good_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      good_service = new Service('hellowworldservice',{}, (payload) ->
           recieved_second_time = true
           {}
       )
@@ -528,8 +518,7 @@ describe 'Service', ->
 
     it 'should not stop the service if the service_fn throws an error', ->
       recieved_messages = 0
-      bad_service = new Service('bad_service',
-        service_fn: (payload) ->
+      bad_service = new Service('bad_service',{}, (payload) ->
           recieved_messages++
           throw new Error()
       )
@@ -550,15 +539,13 @@ describe 'Service', ->
     it 'should still ack if the service throws an error', ->
       recieved_first_time = false
       recieved_second_time = false
-      dead_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      dead_service = new Service('hellowworldservice', {}, (payload) ->
           recieved_first_time = true
           throw new Error()
       )
 
       service = new Service('testService', {timeout: 5000})
-      good_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      good_service = new Service('hellowworldservice', {}, (payload) ->
           recieved_second_time = true
           {}
       )
@@ -585,15 +572,13 @@ describe 'Service', ->
     it 'should not lose the message (ack) if a worker dies', ->
       recieved_first_time = false
       recieved_second_time = false
-      dead_service = new Service('hellowworldservice123',
-        service_fn: (payload) ->
+      dead_service = new Service('hellowworldservice123',{}, (payload) ->
           recieved_first_time = true
           return bb.delay(200) #will wait for a bit while I kill it
       )
 
       service = new Service('testService', {timeout: 5000})
-      good_service = new Service('hellowworldservice123',
-        service_fn: (payload) ->
+      good_service = new Service('hellowworldservice123', {}, (payload) ->
           recieved_second_time = true
           {}
       )
@@ -615,8 +600,7 @@ describe 'Service', ->
       )
 
     it 'should handle when stop start', ->
-      hello_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      hello_service = new Service('hellowworldservice',{}, (payload) ->
           bb.delay(500).then( -> {body: {hello: "world2"}})
       )
 
@@ -643,8 +627,7 @@ describe 'Service', ->
       )
 
     it 'should auto resart', ->
-      hello_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      hello_service = new Service('hellowworldservice',{}, (payload) ->
           bb.delay(500).then( -> {body: {hello: "world"}})
       )
 
@@ -671,8 +654,7 @@ describe 'Service', ->
 
 
     it 'should auto restart on service channel error and all messages should be successful', ->
-      hello_service = new Service('hellowworldservice',
-        service_fn: (payload) ->
+      hello_service = new Service('hellowworldservice', {}, (payload) ->
           console.log "RECIEVED MESSAGE"
           bb.delay(500).then( -> console.log "REPLYING TO MESSAGE"; {body: {hello: "world"}})
       )
