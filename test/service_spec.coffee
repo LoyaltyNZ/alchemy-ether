@@ -235,17 +235,6 @@ describe 'Service', ->
       )
 
 
-  describe '#send_message', ->
-    it 'should work', ->
-      service = new Service('push')
-      s1 = new Service('pull')
-      bb.all([service.start(), s1.start()])
-      .then( ->
-        service.send_message('', 'pull', {}, {})
-      )
-      .finally( -> bb.all([service.stop(), s1.stop()]))
-
-
   describe '#send_message_to_service', ->
     it 'should work', ->
       recieved = false

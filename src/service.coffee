@@ -145,19 +145,6 @@ class Service
   # #### Sending Messages
   #
 
-  # send a message to queue do not wait for response
-  #
-  # *queue_name*:: The routing key to use
-  # *message*:: The message to be sent
-  send_message_to_queue: (queue_name, message) ->
-    send_message( '' , queue_name, message, {
-      message_id:          Service.generateUUID(),
-      content_encoding:   '8bit',
-      content_type:       'application/json',
-      expiration:          @options.timeout,
-      mandatory:           true
-    })
-
   # send a message to a service, this does not wait for a response
   #
   # *service_name*:: The name of the service
@@ -219,7 +206,7 @@ class Service
       expiration: @options.timeout
       mandatory: true
 
-    @send_message(exchange, queue, http_message, http_message_options)
+    @_send_message(exchange, queue, http_message, http_message_options)
 
 
   # `send_HTTP_request` sends a http(ish) request to an exchange and queue
@@ -289,7 +276,7 @@ class Service
       delete @transactions[messageId]
     )
 
-    request_promise = @send_message(exchange, queue, http_message, http_message_options)
+    request_promise = @_send_message(exchange, queue, http_message, http_message_options)
     .then( =>
       response_deferred.promise
     )
@@ -299,8 +286,8 @@ class Service
 
     request_promise
 
-  # `send_message` sends a message to an exchange and queue
-  send_message: (exchange, queue, message, options) ->
+  # `_send_message` sends a message to an exchange and queue
+  _send_message: (exchange, queue, message, options) ->
     @connection_manager.publish_message(exchange, queue, new Buffer(JSON.stringify(message)), options)
 
 
@@ -408,7 +395,7 @@ class Service
 
   # `_reply_to_service_message` responds to a service on its response queue
   _reply_to_service_message: (response_queue, message, options) ->
-    @send_message('', response_queue, message, options)
+    @_send_message('', response_queue, message, options)
 
 
 # ## Service Connection Manager
