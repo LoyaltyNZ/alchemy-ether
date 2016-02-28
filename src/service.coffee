@@ -50,6 +50,7 @@ class Service
   # * `service_queue`: create a service queue (default `true`)
   # * `response_queue`: create a response queue (default `true`)
   # * `timeout`: the timeout in ms to wait for responses from other services (default `1000`)
+  # * `prefetch`: the number of messages to prefetch off the queue
   # * `resource_paths`: a list of strings that are paths that the service handles
   #
   # and a service_fn
@@ -77,6 +78,7 @@ class Service
         service_queue: true
         response_queue: true
         timeout: 1000,
+        prefetch: 20,
         resource_paths: []
       }
     )
@@ -99,6 +101,7 @@ class Service
 
     @connection_manager = new ServiceConnectionManager(
       @options.amqp_uri,
+      @options.prefetch,
       @service_queue_name,
       @process_service_queue_message,
       @response_queue_name,
@@ -141,6 +144,19 @@ class Service
   #
   # #### Sending Messages
   #
+
+  # send a message to queue do not wait for response
+  #
+  # *queue_name*:: The routing key to use
+  # *message*:: The message to be sent
+  send_message_to_queue: (queue_name, message) ->
+    send_message( '' , queue_name, message, {
+      message_id:          Service.generateUUID(),
+      content_encoding:   '8bit',
+      content_type:       'application/json',
+      expiration:          @options.timeout,
+      mandatory:           true
+    })
 
   # send a message to a service, this does not wait for a response
   #
@@ -199,7 +215,7 @@ class Service
       messageId: messageId
       type: 'http_request'
       contentEncoding: '8bit'
-      contentType: 'application/octet-stream'
+      contentType: 'application/json'
       expiration: @options.timeout
       mandatory: true
 
@@ -248,7 +264,7 @@ class Service
       type: 'http_request'
       replyTo: @response_queue_name
       contentEncoding: '8bit'
-      contentType: 'application/octet-stream'
+      contentType: 'application/json'
       expiration: @options.timeout
       mandatory: true
 
@@ -437,6 +453,7 @@ class ServiceConnectionManager
 
   # `constructor(amqp_uri, service_queue_name, service_handler, response_queue_name, response_handler, returned_handler)`
   # 1. `amqp_uri`           : the string URI to amqp
+  # 2. `prefetch`           : the number of messages to prefetch
   # 2. `service_queue_name` : the string name of the service
   # 3. `service_handler`    : the function to process a message
   # 4. `response_queue_name`: the string response queue name
@@ -447,7 +464,7 @@ class ServiceConnectionManager
   #
   # `processing_messages` is used to store the `message_id` to the promise of the currently processing message.
   # So if a `stop` is called we can wait for currently processing messages.
-  constructor: (@amqp_uri, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler, @resources_binding_keys) ->
+  constructor: (@amqp_uri, @prefetch, @service_queue_name, @service_handler, @response_queue_name, @response_handler, @returned_handler, @resources_binding_keys) ->
     @state = 'stopped'
     @processing_messages = {}
 
@@ -590,9 +607,7 @@ class ServiceConnectionManager
   #
   # This function will raise exception if state is not `started` or `starting` or `stopping`
   #
-  # It sets the channels `prefetch` to `20` which will retrieve 20 messages from the queue at a time.
-  # `20` is the size recommended from
-  # [this](http://www.mariuszwojcik.com/2014/05/19/how-to-choose-prefetch-count-value-for-rabbitmq/) post.
+  # It sets the channels `prefetch`
   #
   # It will pass any returned messages to the `returned_handler`.
   #
@@ -608,7 +623,7 @@ class ServiceConnectionManager
       connection.createChannel()
     )
     .then( (service_channel) =>
-      service_channel.prefetch 20
+      service_channel.prefetch @prefetch
 
       service_channel.on('return', (message) =>
         _log(@response_queue_name, "Message Returned to Channel")

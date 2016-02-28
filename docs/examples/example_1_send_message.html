@@ -82,7 +82,7 @@ serviceB1 = <span class="hljs-keyword">new</span> Service(<span class="hljs-stri
 
             </div>
             
-            <div class="content"><div class='highlight'><pre>  serviceA1.send_message_to_service(<span class="hljs-string">'B'</span>, {body: <span class="hljs-string">'Alice'</span>})
+            <div class="content"><div class='highlight'><pre>  serviceA1.send_request_to_service(<span class="hljs-string">'B'</span>, {body: <span class="hljs-string">'Alice'</span>})
 )
 .<span class="hljs-keyword">then</span>( <span class="hljs-function"><span class="hljs-params">(response)</span> -&gt;</span>
   <span class="hljs-built_in">console</span>.log(response.body) <span class="hljs-comment"># "Hello Alice"</span>
