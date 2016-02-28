@@ -185,7 +185,7 @@ class Service
   #
   send_HTTP_message: (exchange, queue, message) ->
     http_message = {
-      session_id:  message.session_id
+      session:     message.session
       scheme:      message.protocol    || 'http'
       host:        message.hostname    || 'localhost'
       port:        message.port        || 8080
