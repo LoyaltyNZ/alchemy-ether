@@ -65,7 +65,7 @@ serviceB1 = new Service("B", {
 serviceA1.start().then( -> serviceB1.start()) # Start the Services
 .then( ->
   # Service A1 sending message to B
-  serviceA1.send_message_to_service('B', {body: 'Alice'})
+  serviceA1.send_request_to_service('B', {body: 'Alice'})
 )
 .then( (response) ->
   console.log(response.body) # "Hello Alice"

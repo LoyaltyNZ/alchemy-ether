@@ -50,7 +50,7 @@ describe 'Service', ->
       bb.all([long_service.start(), service.start()])
       .then( ->
         bb.delay(10).then( -> service.stop())
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .delay(100)
       .then( (content) ->
@@ -71,7 +71,7 @@ describe 'Service', ->
       bb.all([long_service.start(), service.start()])
       .then( ->
         bb.delay(10).then( -> long_service.stop())
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .delay(100)
       .then( (content) ->
@@ -101,9 +101,9 @@ describe 'Service', ->
         )
         .delay(10)
         .then( ->
-          service.send_message_to_service('stoppedhellowworldservice', {})
+          service.send_request_to_service('stoppedhellowworldservice', {})
         )
-        service.send_message_to_service('stoppedhellowworldservice', {})
+        service.send_request_to_service('stoppedhellowworldservice', {})
 
       )
       .delay(100)
@@ -144,7 +144,7 @@ describe 'Service', ->
         .delay(10)
         .then( -> short_service.start())
 
-        service.send_message_to_service('deadhellowworldservice', {})
+        service.send_request_to_service('deadhellowworldservice', {})
       )
       .then( (body) ->
         expect(body.body).to.equal "second_chance"
@@ -247,71 +247,97 @@ describe 'Service', ->
 
 
   describe '#send_message_to_service', ->
+    it 'should work', ->
+      recieved = false
+      hello_service = new Service('hellowworldservice', {}, (payload) ->
+        recieved = true
+        {}
+      )
+
+      service = new Service('testService')
+
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.send_message_to_service('hellowworldservice', {path: '/v1/hello'})
+      )
+      .delay(10)
+      .then( (content) ->
+        expect(recieved).to.equal(true)
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+  describe '#send_message_to_resource', ->
+    it 'should work', ->
+      recieved = false
+      hello_service = new Service('hellowworldservice', {resource_paths: ['/v1/hello']}, (payload) ->
+        recieved = true
+        {}
+      )
+
+      service = new Service('testService')
+
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.send_message_to_resource({path: '/v1/hello'})
+      )
+      .delay(10)
+      .then( (content) ->
+        expect(recieved).to.equal(true)
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+  describe '#send_request_to_resource', ->
+    it 'should work', ->
+      hello_service = new Service('hellowworldservice', {resource_paths: ['/v1/hello']}, (payload) ->
+        {body: {hello: "world"}}
+      )
+
+      service = new Service('testService')
+
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.send_request_to_resource({path: '/v1/hello'})
+      )
+      .then( (content) ->
+        expect(content.body.hello).to.equal('world')
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
+
+  describe '#send_request_to_service', ->
+    it 'should work', ->
+      hello_service = new Service('hellowworldservice', {}, (payload) ->
+        {body: {hello: "world"}}
+      )
+
+      service = new Service('testService')
+
+      bb.all([hello_service.start(), service.start()])
+      .then( ->
+        service.send_request_to_service('hellowworldservice', {})
+      )
+      .then( (content) ->
+        expect(content.body.hello).to.equal('world')
+      )
+      .finally(
+        -> bb.all([service.stop(), hello_service.stop()])
+      )
 
     describe 'returned transaction promise', ->
       it 'should contain a messageId', ->
         service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          transaction_promise = service.send_message_to_service('service1', {})
+          transaction_promise = service.send_request_to_service('service1', {})
           expect(transaction_promise.messageId).to.not.be.undefined
         )
         .finally( -> service.stop())
 
-      it 'should use the x-interaction-id header if present', ->
-        service = new Service('testService', timeout: 10)
-        service.start()
-        .then( ->
-          x_interaction_id = Service.generateUUID()
-          payload =
-            headers: { 'x-interaction-id': x_interaction_id }
-          transaction_promise = service.send_message_to_service('service1', payload)
-          expect(transaction_promise.transactionId).to.equal(x_interaction_id)
-        )
-        .finally( -> service.stop())
-
-      it 'should generate a transaction id if one is missing', ->
-        service = new Service('testService', timeout: 10)
-        service.start()
-        .then( ->
-          transaction_promise = service.send_message_to_service('service1', {})
-          expect(transaction_promise.transactionId).to.not.be.undefined
-        )
-        .finally( -> service.stop())
-
-      it 'should send the provided x-interaction-id header if present', ->
-        x_interaction_id = Service.generateUUID()
-
-        service  = new Service('testService', timeout: 10)
-        receivingService = new Service('receivingService', {}, (pl) ->
-          expect(pl.headers['x-interaction-id']).to.equal(x_interaction_id)
-          return { body: { "successful": true } }
-        )
-
-        bb.all([service.start(), receivingService.start()])
-        .then( ->
-          payload =
-            headers: { 'x-interaction-id': x_interaction_id }
-          service.send_message_to_service('receivingService', payload)
-        ).then( (body) ->
-          expect(body.body.successful).to.be.true
-        )
-        .finally( -> bb.all([service.stop(), receivingService.stop()]) )
-
-      it 'should send a generated x-interaction-id header none is passed', ->
-        service  = new Service('testService', timeout: 10)
-        receivingService = new Service('receivingService', {},  (pl) ->
-          expect(pl.headers['x-interaction-id']).to.not.be.undefined
-          return {body: { "successful": true }}
-        )
-
-        bb.all([service.start(), receivingService.start()])
-        .then( ->
-          service.send_message_to_service('receivingService', {})
-        ).then( (body) ->
-          expect(body.body.successful).to.be.true
-        )
-        .finally( -> bb.all([service.stop(), receivingService.stop()]) )
 
     describe 'transactions queue', ->
 
@@ -321,7 +347,7 @@ describe 'Service', ->
         service.start()
         .then( ->
           expect(Object.keys(service.transactions).length).to.equal(0)
-          service.send_message_to_service('service1', {})
+          service.send_request_to_service('service1', {})
           expect(Object.keys(service.transactions).length).to.equal(1)
         )
         .finally( -> service.stop())
@@ -335,7 +361,7 @@ describe 'Service', ->
 
         bb.all([hello_service.start(), service.start()])
         .then( ->
-          service.send_message_to_service('hellowworldservice', {})
+          service.send_request_to_service('hellowworldservice', {})
         )
         .then( (content) ->
           expect(content.body.hello).to.equal('world')
@@ -349,7 +375,7 @@ describe 'Service', ->
         service = new Service('testService', timeout: 10)
         service.start()
         .then( ->
-          service.send_message_to_service('service1', {})
+          service.send_request_to_service('service1', {})
           .then( ->
             throw "It should not get here"
           )
@@ -368,7 +394,7 @@ describe 'Service', ->
           badservice.stop()
         )
         .then( ->
-          service.send_message_to_service('ts1', {})
+          service.send_request_to_service('ts1', {})
           .then( ->
             throw "It should not get here"
           )
@@ -390,7 +416,7 @@ describe 'Service', ->
         service = new Service('testService', timeout: 1)
         bb.all([service.start(), badservice.start()])
         .then( ->
-          service.send_message_to_service('ts1', {})
+          service.send_request_to_service('ts1', {})
           .then( ->
             throw "It should not get here"
           )
@@ -410,7 +436,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .finally(
         -> bb.all([service.stop(), hello_service.stop()])
@@ -427,7 +453,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
         .then( ->
           throw "It should not get here"
         )
@@ -449,7 +475,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.body.hello).to.equal('world')
@@ -468,7 +494,7 @@ describe 'Service', ->
 
       bb.all([hello_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.body.hello).to.equal('world')
@@ -499,7 +525,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.status_code).to.equal 500
@@ -526,11 +552,11 @@ describe 'Service', ->
 
       bb.all([bad_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('bad_service', {}) #kill the service
+        service.send_request_to_service('bad_service', {}) #kill the service
       )
       .then( ->
         expect(recieved_messages).to.equal 1
-        service.send_message_to_service('bad_service', {})
+        service.send_request_to_service('bad_service', {})
       )
       .then( ->
         expect(recieved_messages).to.equal 2
@@ -552,7 +578,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.status_code).to.equal 500
@@ -585,7 +611,7 @@ describe 'Service', ->
 
       bb.all([dead_service.start(), service.start()])
       .then( ->
-        service.send_message_to_service('hellowworldservice123', {})
+        service.send_request_to_service('hellowworldservice123', {})
         bb.delay(100).then( -> console.log "KILL"; dead_service.stop())
       )
       .then( ->
@@ -616,7 +642,7 @@ describe 'Service', ->
             service.start()
           )
         )
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.body.hello).to.equal('world2')
@@ -640,7 +666,7 @@ describe 'Service', ->
           #force close connection
           service.connection_manager.connection.close()
         )
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.body.hello).to.equal('world')
@@ -671,7 +697,7 @@ describe 'Service', ->
             sc.checkQueue(cn)
           )
         )
-        service.send_message_to_service('hellowworldservice', {})
+        service.send_request_to_service('hellowworldservice', {})
       )
       .then( (content) ->
         expect(content.body.hello).to.equal('world')
