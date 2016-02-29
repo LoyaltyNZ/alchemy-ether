@@ -327,7 +327,6 @@ class Service
   #
   # If the message is type of `http_request` then pass to `receive_HTTP_request` as it expects a response,
   process_service_queue_message: (msg) =>
-    type = msg.properties.type
     @receive_HTTP_request(msg)
 
 
