@@ -1,5 +1,9 @@
 # Alchemy Ether
 
+[![npm version](https://badge.fury.io/js/alchemy-ether.svg)](https://badge.fury.io/js/alchemy-ether)
+[![Build Status](https://travis-ci.org/LoyaltyNZ/alchemy-ether.svg?branch=master)](https://travis-ci.org/LoyaltyNZ/alchemy-ether)
+[![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](http://www.gnu.org/licenses/lgpl-3.0.en.html)
+
 ## Alchemy Micro-services Framework
 
 The Alchemy [Micro-services](http://martinfowler.com/articles/microservices.html) Framework is a framework for creating many small interconnected services that communicate over the RabbitMQ message brokering service. Building services with Alchemy has many benefits, like:
