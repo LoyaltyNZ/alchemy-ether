@@ -89,7 +89,7 @@ The Alchemy-Ether package exports [Service](./src/service.html):
 
 ## Examples
 
-* [Sending a message between services](./examples/example_1_send_message.html)
+* [Sending a message between services](./examples/example_1_send_message.coffee)
 
 ## Contributors
 
