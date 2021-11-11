@@ -24,7 +24,7 @@
     "node-uuid": "1.4.7"
   },
   "devDependencies": {
-    "mocha": "^5",
+    "mocha": "^2",
     "chai": "3.4.1"
   },
   "scripts": {
