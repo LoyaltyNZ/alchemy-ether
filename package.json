@@ -24,11 +24,11 @@
     "node-uuid": "1.4.7"
   },
   "devDependencies": {
-    "mocha": "^2",
+    "mocha": "^5.2.0",
     "chai": "3.4.1"
   },
   "scripts": {
-    "test": "mocha",
+    "test": "mocha --exit",
     "doc": "cat src/alchemy-ether.litcoffee > README.md && docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src && docco examples/*.coffee -o docs/examples"
   },
   "license": "LGPL-3.0"
