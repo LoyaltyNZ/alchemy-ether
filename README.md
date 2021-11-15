@@ -97,7 +97,3 @@ The Alchemy-Ether package exports [Service](./src/service.html):
 * Tom Cully
 * Wayne Hoover
 * Rory Stephenson
-
-## Changelog
-
-2015-12-3 - Open Sourced  - Graham
