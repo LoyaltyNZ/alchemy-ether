@@ -1,7 +1,7 @@
 {
   "name": "alchemy-ether",
   "description": "Alchemy-Ether is a Node.js implementation of the Alchemy Micro-service framework",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "homepage": "https://github.com/LoyaltyNZ/alchemy-ether",
   "repository": {
     "type": "git",
@@ -16,19 +16,25 @@
     "node": ">= 0.12.7"
   },
   "dependencies": {
-    "msgpack": "1.0.2",
-    "coffee-script": "1.10.0",
-    "amqplib": "0.4.2",
-    "bluebird": "3.0.5",
-    "lodash": "^4.17.13",
+    "msgpack": "1.0.3",
+    "coffee-script": "1.12.7",
+    "amqplib": "0.10.3",
+    "bluebird": "3.7.2",
+    "lodash": "^4.17.21",
     "node-uuid": "1.4.7"
   },
   "devDependencies": {
-    "mocha": "^5.2.0",
-    "chai": "3.4.1"
+    "mocha": "^10.2.0",
+    "chai": "3.5.0"
+  },
+  "mocha": {
+    "require": "coffee-script/register",
+    "reporter": "spec",
+    "recursive": "true",
+    "timeout": "30000"
   },
   "scripts": {
-    "test": "mocha --exit",
+    "test": "mocha test/*.coffee --exit",
     "doc": "cat src/alchemy-ether.litcoffee > README.md && docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src && docco examples/*.coffee -o docs/examples"
   },
   "license": "LGPL-3.0"
