@@ -1,5 +1,9 @@
 ## Changelog
 
+## v1.1.0
+
+* Get tests working [TO-5870](https://loyaltynz.atlassian.net/browse/TO-5870)
+
 ## v1.0.1
 
 * Build with nodejs 8.15.1
