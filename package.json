@@ -25,7 +25,7 @@
   "devDependencies": {
     "chai": "3.4.1",
     "coffeescript": "^2.7.0",
-    "mocha": "^6.2.3"
+    "mocha": "^7.2.0"
   },
   "scripts": {
     "test": "mocha test/*.coffee --full-trace --require coffeescript/register --require test/spec_helper --recursive --timeout 10000 --reporter spec",
