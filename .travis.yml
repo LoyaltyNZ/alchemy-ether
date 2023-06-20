@@ -23,12 +23,6 @@ cache:
 before_install:
   - export CXX="g++-4.8"
 
-#jobs:
-#  include:
-#    - stage: test
-#      name: 'Unit Tests'
-#      script: 'travis_wait npm run test'
-
 deploy:
   provider: npm
   email: cloudservices@loyalty.co.nz

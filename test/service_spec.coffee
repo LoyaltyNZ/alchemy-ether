@@ -118,7 +118,7 @@ describe 'Service', ->
       .finally( ->
         short_service.start() #drain the queue
         .then( ->
-          bb.all([short_service.stop(), service.stop()])
+          bb.all([short_service.stop(), service.stop(), long_service.stop()])
         )
       )
 
@@ -236,6 +236,7 @@ describe 'Service', ->
       .then( ->
         expect(exists).to.equal true
       )
+      .finally( -> service.stop())
 
 
   describe '#send_message_to_service', ->
@@ -379,11 +380,11 @@ describe 'Service', ->
 
       it 'should timeout message, so message is not read after timeout', ->
         read_message = false
-        badservice = new Service('ts1', {}, -> read_message = true; {})
+        bad_service = new Service('ts1', {}, -> read_message = true; {})
         service = new Service('testService', timeout: 100)
-        bb.all([service.start(), badservice.start()])
+        bb.all([service.start(), bad_service.start()])
         .then( ->
-          badservice.stop()
+          bad_service.stop()
         )
         .then( ->
           service.send_request_to_service('ts1', {})
@@ -395,18 +396,18 @@ describe 'Service', ->
           )
         )
         .then( ->
-          badservice.start()
+          bad_service.start()
         )
         .delay(100)
         .then( ->
           expect(read_message).to.equal false
         )
-        .finally( -> bb.all([service.stop(), badservice.stop()]))
+        .finally( -> bb.all([service.stop(), bad_service.stop()]))
 
       it 'should timeout when no message is returned and remove transaction deferred', ->
-        badservice = new Service('ts1', {}, -> bb.delay(100))
+        bad_service = new Service('ts1', {}, -> bb.delay(100))
         service = new Service('testService', timeout: 1)
-        bb.all([service.start(), badservice.start()])
+        bb.all([service.start(), bad_service.start()])
         .then( ->
           service.send_request_to_service('ts1', {})
           .then( ->
@@ -416,7 +417,7 @@ describe 'Service', ->
             expect(Object.keys(service.transactions).length).to.equal(0)
           )
         )
-        .finally( -> bb.all([service.stop(), badservice.stop()]))
+        .finally( -> bb.all([service.stop(), bad_service.stop()]))
 
   describe "option response_queue", ->
     it 'should not listen to a service queue if false', ->
@@ -552,6 +553,9 @@ describe 'Service', ->
       )
       .then( ->
         expect(received_messages).to.equal 2
+      )
+      .finally(
+        -> bb.all([service.stop(), bad_service.stop()])
       )
 
     it 'should still ack if the service throws an error', ->

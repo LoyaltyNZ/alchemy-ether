@@ -2,8 +2,8 @@
 
 ## v1.0.2
 
-- Critical vulnerabilities update
-    - Bump `mocha` from `5.2.0` to `6.2.3`: [DS-2929]
+- Critical vulnerabilities update [DS-2929]
+    - Bump `mocha` from `5.2.0` to `7.2.0`: 
     
 ## v1.0.1
 

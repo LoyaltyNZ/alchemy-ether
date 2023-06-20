@@ -16,11 +16,11 @@
     "node": ">= 0.12.7"
   },
   "dependencies": {
-    "msgpack": "1.0.2",
     "amqplib": "0.4.2",
     "bluebird": "3.0.5",
     "lodash": "^4.17.13",
-    "node-uuid": "1.4.7"
+    "msgpack": "^1.0.3",
+    "node-uuid": "^1.4.8"
   },
   "devDependencies": {
     "chai": "3.4.1",
@@ -28,7 +28,7 @@
     "mocha": "^7.2.0"
   },
   "scripts": {
-    "test": "mocha test/*.coffee --full-trace --require coffeescript/register --require test/spec_helper --recursive --timeout 10000 --reporter spec",
+    "test": "mocha test/*.coffee --exit --require coffeescript/register --require test/spec_helper --recursive --reporter spec",
     "doc": "cat src/alchemy-ether.litcoffee > README.md && docco -l linear src/alchemy-ether.litcoffee && docco src/*.coffee -o docs/src && docco examples/*.coffee -o docs/examples"
   },
   "license": "LGPL-3.0"
