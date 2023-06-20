@@ -729,6 +729,7 @@ class ServiceConnectionManager
 
 class NAckError extends Error
   constructor: () ->
+    super()
     @name = "NAckError"
     @message = "NAck the Message"
     Error.captureStackTrace(this, NAckError)
@@ -743,6 +744,7 @@ Service.NAckError = NAckError
 
 class MessageNotDeliveredError extends Error
   constructor: (messageID, routingKey) ->
+    super()
     @name = "MessageNotDeliveredError"
     @message = "message #{messageID} not delivered to #{routingKey}"
     Error.captureStackTrace(this, MessageNotDeliveredError)
