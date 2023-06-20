@@ -1,3 +1,6 @@
+
+{ describe, it } = require 'mocha'
+
 describe 'Service', ->
 
   describe '#constructor', ->
@@ -552,17 +555,17 @@ describe 'Service', ->
       )
 
     it 'should still ack if the service throws an error', ->
-      recieved_first_time = false
-      recieved_second_time = false
+      received_first_time = false
+      received_second_time = false
       dead_service = new Service('hellowworldservice', {}, (payload) ->
-          recieved_first_time = true
-          throw new Error()
+        received_first_time = true
+        throw new Error()
       )
 
       service = new Service('testService', {timeout: 5000})
       good_service = new Service('hellowworldservice', {}, (payload) ->
-          recieved_second_time = true
-          {}
+        received_second_time = true
+        {}
       )
 
       bb.all([dead_service.start(), service.start()])
@@ -577,25 +580,25 @@ describe 'Service', ->
         good_service.start().delay(50) # should get the message that was lost after a bit
       )
       .then( ->
-        expect(recieved_first_time).to.equal true
-        expect(recieved_second_time).to.equal false
+        expect(received_first_time).to.equal true
+        expect(received_second_time).to.equal true # It was a false negative before, because the service was started
       )
       .finally(
         -> bb.all([service.stop(), good_service.stop()])
       )
 
     it 'should not lose the message (ack) if a worker dies', ->
-      recieved_first_time = false
-      recieved_second_time = false
+      received_first_time = false
+      received_second_time = false
       dead_service = new Service('hellowworldservice123',{}, (payload) ->
-          recieved_first_time = true
-          return bb.delay(200) #will wait for a bit while I kill it
+        received_first_time = true
+        return bb.delay(200) #will wait for a bit while I kill it
       )
 
       service = new Service('testService', {timeout: 5000})
       good_service = new Service('hellowworldservice123', {}, (payload) ->
-          recieved_second_time = true
-          {}
+        received_second_time = true
+        {}
       )
 
       bb.all([dead_service.start(), service.start()])
@@ -607,8 +610,8 @@ describe 'Service', ->
         good_service.start().delay(10) # should get the message that was lost after a bit
       )
       .then( ->
-        expect(recieved_first_time).to.equal true
-        expect(recieved_second_time).to.equal true
+        expect(received_first_time).to.equal true
+        expect(received_second_time).to.equal true
       ).delay(1000)
       .finally(
         -> bb.all([service.stop(), good_service.stop()])
