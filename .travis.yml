@@ -17,6 +17,10 @@ cache:
   - node_modules
 before_install:
 - export CXX="g++-4.8"
+# Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS
+# connections and HTTPS requests insecure by disabling certificate verification
+# Thats OK because HTTPS/TLS termination is done by the Amazon Load Balancer, not here
+- export NODE_TLS_REJECT_UNAUTHORIZED=0
 deploy:
   provider: npm
   email: cloudservices@loyalty.co.nz

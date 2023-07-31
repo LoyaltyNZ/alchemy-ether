@@ -1,5 +1,9 @@
 ## Changelog
 
+## v1.0.3
+
+- Fix version [TO-6719] 
+
 ## v1.0.2
 
 - Critical vulnerabilities update [DS-2929]
