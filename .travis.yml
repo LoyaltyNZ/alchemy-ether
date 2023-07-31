@@ -1,11 +1,9 @@
 language: node_js
 node_js:
-  - "8.15.1"
-
+- 8.15.1
 services:
-  - rabbitmq
-  - memcached
-
+- rabbitmq
+- memcached
 addons:
   apt:
     sources:
@@ -13,20 +11,16 @@ addons:
     packages:
     - gcc-4.8
     - g++-4.8
-    # https://docs.travis-ci.com/user/database-setup/#rabbitmq
     - rabbitmq-server
-
 cache:
   directories:
-    - node_modules
-
+  - node_modules
 before_install:
-  - export CXX="g++-4.8"
-
+- export CXX="g++-4.8"
 deploy:
   provider: npm
   email: cloudservices@loyalty.co.nz
   api_key:
-    secure: "KO7ga93FtWxBi7NpimgdTfySdLjmWfK4Gm+ftZJWLIlPb3dDLxGuieaTSx0guSezUXXq91YQJXTYT187Esy0RjAUj/l2RBX5RkjUWOrsiDy0JM9WvnMTv0sNUVeVM5K6qSEl/snOJTQpA4/aJpgAAK/aDwumPMIYFRFt21vurZv5InZIOd5A62i9O7bqsVP9FlMjH68kiBGH3rv/7uuJzdoP9CQRU66tqvCsQ1+1epECAUuGxqoOw887B4xMUgx1DlDcxyRNRCPKvGn2JbCMyFue2Yo68kQqafKBtXpW2pU7OCLoJ6+0sRU6dgSvjo7l682BLWyiySYO6qgBW3yxJKIVtAaOFOJutuZjQz8VeJ5q+nCp7qqUKppRedm4QDVGjfTPh1c3Q1CKg8bxZ8Pnkg77T4hOjMr375lHBLDS/rcX/xIocHM7hFV5cfVXPyRSBqC/FDXI/40k3iGmFmpk7gmhl9BGiYgixaN6rYdaxqMFM0hO0Lup+Up1NFCxGpmQidoZldMTn5Giaa+R6Vl1muBW4RyoYBnmGSCeNKcD16YMk5bj3UdsAA+lwRnH4+DsoQViKB9vEw/4ZyhWOIzsaKNoecL3bf8FeXTXjEzSnDIcq3fLVd9ggL9b39DwIO+pSD7oH7geqZjzawv41wI6tB5BxHyiZs32u/XrLT9F5k4="
+    secure: loNgec3LpO0fr9AJTbzaawzCAJauscSu+jvGeIakM3J8sILRGfIWj0VZlXKN0fiLXYm2eHQatfkzS2QH/6D0BN1fn/4O6jlVhQJDhNKVK1vjBEkVzm1iwQHq9Flm4JA9GjHpBxrNAlh23nSnCug7xKNY+oGRvmW9BHgTYB8P2sqqu3NBFmUHPpF3vWVTCaG9qECg1YFoa2I0tJpcNH5+MUUat3mf7vRaE81WmH/cHITDqkizyn4ts+gdXzzs9xG0eukp/NCfei3fOSeI3kD4mubkOXt5SUVtXDu4GeBfNxziMom3+H+cSI9BUCcNZg62AH/ERgXmINMinJtQNSITgYikc/eSraRFXb0LKwt9s+voWal7mIwxcDDxfvoyoIeI6cqU0Q1v8CV6xS3pJsiE6TjkyTi3y/n9aZEwzzDuviUFQTihOnAb+E7iJ9+WDbb93q3nTMW7KX4EunnL3pPGsvZ5ABmIecRp22YClaxybCMmXpPWQXcVJfviYMDlkarMwCLGWkrb71Ec/SsnD8f4IwoXIbOqshlQPwwPmQoRwzxbp7/BHIh6z1ZVAGHfA+7WDYcgexXOyGQo7pLIn5Bm8uIQC9RfXoI0Bke837JtyQkyyf/51T4Mi5eiaYLvAT1rilZukvSHEyfcroUd4ZPQr5sPmB97mhwHvStTN31c3o8=
   on:
     tags: true
