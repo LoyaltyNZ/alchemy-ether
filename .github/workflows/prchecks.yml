@@ -3,7 +3,7 @@ name: PRChecks
 on:
   push:
     branches:
-      - TO-7524
+      - test
 
 jobs:
   build:
