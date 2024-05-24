@@ -1,9 +1,9 @@
 name: PRChecks
 
 on:
-  pull_request:
+  push:
     branches:
-      - master
+      - TO-7524
 
 jobs:
   build:
@@ -60,8 +60,3 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-    #   - name: Deploy to npm
-    #     env:
-    #       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-    #     run: npm publish
-    #     if: startsWith(github.ref, 'refs/tags/')
