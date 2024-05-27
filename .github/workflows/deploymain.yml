@@ -1,7 +1,7 @@
 name: PRChecks
 
 on:
-  pull_request:
+  push:
     branches:
       - master
 
@@ -43,6 +43,8 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+        registry-url: 'https://registry.npmjs.org'
+        always-auth: true
 
     - name: Install project dependencies
       run: |
@@ -52,3 +54,9 @@ jobs:
       run: |
         export CXX="g++-4.8"
         npm test
+
+    - name: Publish to npm
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
