@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - TO-7524    #TODO update to master branch
+      - master
 
 jobs:
   build:
@@ -56,6 +56,6 @@ jobs:
         npm test
 
     - name: Publish to npm
-      run: npm publish --dry-run       #TODO Remove --dry-run
+      run: npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}

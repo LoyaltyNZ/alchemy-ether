@@ -1,5 +1,9 @@
 ## Changelog
 
+## v1.0.4
+
+- Migration to Github Actions [TO-7524] 
+
 ## v1.0.3
 
 - Fix version [TO-6719] 
